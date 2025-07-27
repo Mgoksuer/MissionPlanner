@@ -4,6 +4,7 @@ extern alias Drawing;
 
 using GMap.NET.WindowsForms;
 using log4net;
+using MissionPlanner;
 using MissionPlanner.ArduPilot;
 using MissionPlanner.Comms;
 using MissionPlanner.Controls;
@@ -38,7 +39,6 @@ using System.Linq;
 using MissionPlanner.Joystick;
 using System.Net;
 using Newtonsoft.Json;
-using MissionPlanner;
 using Flurl.Util;
 using Org.BouncyCastle.Bcpg;
 using log4net.Repository.Hierarchy;
@@ -3184,6 +3184,24 @@ namespace MissionPlanner
             {
                 log.Error(ex);
             }
+
+
+            if (FlightData != null)
+            {
+                if (FlightData.MainH_Prop != null) 
+                {
+                    FlightData.MainH_Prop.SplitterDistance = 600; 
+                }
+                if (FlightData.SubMainLeft_Prop != null) 
+                {
+                    FlightData.SubMainLeft_Prop.SplitterDistance = 140; 
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("FlightData nesnesi null. Panel oranlarý ayarlanamadý.");
+            }
+
 
             if (Program.Logo != null && Program.name == "VVVVZ")
             {

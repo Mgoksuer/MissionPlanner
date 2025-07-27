@@ -5,9 +5,13 @@ namespace MissionPlanner.GCSViews
     partial class FlightData
     {
         private System.ComponentModel.IContainer components = null;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanelVideoAndHud;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanelBottomLeft; 
+      
 
         private void InitializeComponent()
         {
+                
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FlightData));
             this.MainH = new System.Windows.Forms.SplitContainer();
@@ -320,13 +324,64 @@ namespace MissionPlanner.GCSViews
             // 
             // SubMainLeft.Panel1
             // 
-            this.SubMainLeft.Panel1.Controls.Add(this.hud1);
+            //
+            // SubMainLeft.Panel1
+            //
+            // Önce TableLayoutPanel'ý baþlatýn
+            this.tableLayoutPanelVideoAndHud = new System.Windows.Forms.TableLayoutPanel();
+            resources.ApplyResources(this.tableLayoutPanelVideoAndHud, "tableLayoutPanelVideoAndHud"); // Kaynaklarý uygulayýn
+            this.tableLayoutPanelVideoAndHud.Name = "tableLayoutPanelVideoAndHud";
+            this.tableLayoutPanelVideoAndHud.ColumnCount = 2; // Ýki sütun (biri HUD için, diðeri yeni kutu için)
+            this.tableLayoutPanelVideoAndHud.RowCount = 1; // Bir satýr
+            this.tableLayoutPanelVideoAndHud.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F)); // Ýlk sütun %50
+            this.tableLayoutPanelVideoAndHud.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F)); // Ýkinci sütun %50
+            this.tableLayoutPanelVideoAndHud.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F)); // Tek satýr %100
+
+            // TableLayoutPanel'ý SubMainLeft.Panel1'e ekleyin ve doldurun
+            this.SubMainLeft.Panel1.Controls.Add(this.tableLayoutPanelVideoAndHud);
+            this.tableLayoutPanelVideoAndHud.Dock = System.Windows.Forms.DockStyle.Fill;
+
+            // Þimdi hud1'i bu yeni TableLayoutPanel'ýn ilk sütununa ekleyin
+            this.tableLayoutPanelVideoAndHud.Controls.Add(this.hud1, 0, 0); // 0. sütun, 0. satýr
+            resources.ApplyResources(this.hud1, "hud1"); // HUD'ýn kaynaklarý yeniden uygulanmalý
+            this.hud1.Dock = System.Windows.Forms.DockStyle.Fill; // HUD'ý hücreyi dolduracak þekilde ayarla
             // 
             // SubMainLeft.Panel2
             // 
-            this.SubMainLeft.Panel2.ContextMenuStrip = this.contextMenuStripactionstab;
-            this.SubMainLeft.Panel2.Controls.Add(this.tabControlactions);
-            this.SubMainLeft.Panel2.Controls.Add(this.panel_persistent);
+            this.SubMainLeft.Panel2.Controls.Clear();
+
+            // Yeni tableLayoutPanelBottomLeft'i baþlatýn
+            this.tableLayoutPanelBottomLeft = new System.Windows.Forms.TableLayoutPanel();
+            resources.ApplyResources(this.tableLayoutPanelBottomLeft, "tableLayoutPanelBottomLeft");
+            this.tableLayoutPanelBottomLeft.Name = "tableLayoutPanelBottomLeft";
+            this.tableLayoutPanelBottomLeft.ColumnCount = 2; // Ýki sütun (biri mevcut tabControl için, diðeri yeni kutu için)
+            this.tableLayoutPanelBottomLeft.RowCount = 1;    // Bir satýr
+                                                             // Ýlk sütun %50 geniþlik, Ýkinci sütun %50 geniþlik
+            this.tableLayoutPanelBottomLeft.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanelBottomLeft.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanelBottomLeft.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F)); // Tek satýr %100 yükseklik
+            this.tableLayoutPanelBottomLeft.Dock = System.Windows.Forms.DockStyle.Fill; // Panel2'yi tamamen doldursun
+
+            // pnlBlackBoxBottom panelini baþlatýn (siyah kutu için)
+            this.pnlBlackBoxBottom = new System.Windows.Forms.Panel();
+            this.pnlBlackBoxBottom.BackColor = System.Drawing.Color.Black;
+            this.pnlBlackBoxBottom.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlBlackBoxBottom.Name = "pnlBlackBoxBottom";
+            this.pnlBlackBoxBottom.Dock = System.Windows.Forms.DockStyle.Fill; // Hücreyi doldursun
+
+            // tableLayoutPanelBottomLeft'i SubMainLeft.Panel2'ye ekleyin
+            this.SubMainLeft.Panel2.Controls.Add(this.tableLayoutPanelBottomLeft);
+            this.SubMainLeft.Panel2.ContextMenuStrip = this.contextMenuStripactionstab; // Context menü geri eklenmeli
+
+            // Mevcut tabControlactions'ý (QuickView'larý içeren) tableLayoutPanelBottomLeft'in ilk sütununa ekleyin
+            this.tableLayoutPanelBottomLeft.Controls.Add(this.tabControlactions, 0, 0); // 0. sütun, 0. satýr
+                                                                                        // tabControlactions'ýn hücreyi doldurmasýný saðlayýn
+            this.tabControlactions.Dock = System.Windows.Forms.DockStyle.Fill;
+
+            // Yeni siyah kutu panelini tableLayoutPanelBottomLeft'in ikinci sütununa ekleyin
+            this.tableLayoutPanelBottomLeft.Controls.Add(this.pnlBlackBoxBottom, 1, 0); // 1. sütun, 0. satýr
+                                                                                        // pnlBlackBoxBottom'ýn hücreyi doldurmasýný saðlayýn
+            this.pnlBlackBoxBottom.Dock = System.Windows.Forms.DockStyle.Fill;
             // 
             // hud1
             // 
