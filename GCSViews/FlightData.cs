@@ -46,7 +46,11 @@ namespace MissionPlanner.GCSViews
 {
     public partial class FlightData : MyUserControl, IActivate, IDeactivate
     {
+        public System.Windows.Forms.SplitContainer MainH_Prop => MainH;      
+        public System.Windows.Forms.SplitContainer SubMainLeft_Prop => SubMainLeft; 
         public static FlightData instance;
+        private Panel pnlBlackBox;//
+        private System.Windows.Forms.Panel pnlBlackBoxBottom;//
         public static GMapOverlay kmlpolygons;
         public static HUD myhud;
         public static readonly GStreamer hudGStreamer = new GStreamer();
@@ -61,10 +65,35 @@ namespace MissionPlanner.GCSViews
         internal static GMapOverlay tfrpolygons;
         internal GMapMarker CurrentGMapMarker;
 
+
         internal PointLatLng MouseDownStart;
 
         //The file path of the selected script
         internal string selectedscript = "";
+
+        private void InitializeBlackBox()
+        {
+            pnlBlackBox = new Panel();
+            pnlBlackBox.Name = "pnlBlackBox";
+            pnlBlackBox.BackColor = Color.Black;        // İçini siyah yap
+            pnlBlackBox.BorderStyle = BorderStyle.FixedSingle; // Kutuyu görünür yapmak için kenarlık ekle
+            pnlBlackBox.Dock = DockStyle.Fill; // Hücreyi tamamen doldursun
+
+            // tableLayoutPanelVideoAndHud kontrolünü bulup paneli ekle
+            // Bu kontrol Designer.cs'de tanımlandığı için burada doğrudan erişilebilir olmalı.
+            if (this.tableLayoutPanelVideoAndHud != null)
+            {
+                // Paneli, tableLayoutPanelVideoAndHud'ın ikinci sütununa (indeks 1), ilk satırına (indeks 0) ekleyin
+                this.tableLayoutPanelVideoAndHud.Controls.Add(pnlBlackBox, 1, 0);
+            }
+            else
+            {
+                // Eğer tableLayoutPanelVideoAndHud bulunamazsa (ki olmamalı), direkt FlightData'ya ekle
+                // Bu sadece bir fallback'dir ve önceki durumdaki gibi üstte çıkabilir.
+                this.Controls.Add(pnlBlackBox);
+                System.Diagnostics.Debug.WriteLine("tableLayoutPanelVideoAndHud bulunamadı, siyah kutu FlightData'nın Controls'una eklendi.");
+            }
+        }
 
         private static readonly ILog log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         AviWriter aviwriter;
@@ -146,6 +175,9 @@ namespace MissionPlanner.GCSViews
 
         int messagecount;
 
+        // GCSViews/FlightData.cs içinde bir yere ekleyin
+        // GCSViews/FlightData.cs içinde bir yere ekleyin
+       
         //whether or not the output console has already started
         bool outputwindowstarted;
 
@@ -246,6 +278,8 @@ namespace MissionPlanner.GCSViews
             log.Info("Ctor Start");
 
             InitializeComponent();
+            InitializeBlackBox();
+
 
             log.Info("Components Done");
 
