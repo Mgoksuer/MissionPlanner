@@ -2151,6 +2151,20 @@ namespace MissionPlanner
             {
             } // i get alot of these errors, the port is still open, but not valid - user has unpluged usb
 
+            log.Info("closing fd");
+            try
+            {
+                // VLC oynatýcýsýný temizle
+                if (FlightData != null) // FlightData nesnesinin oluþturulduðundan emin olun
+                {
+                    FlightData.CleanupVlcPlayer();
+                }
+                FlightData.Dispose(); // Bu satýr zaten kodunuzda var
+            }
+            catch
+            {
+            }
+
             // save config
             SaveConfig();
 

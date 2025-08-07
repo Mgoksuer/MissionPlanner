@@ -3719,7 +3719,7 @@ namespace MissionPlanner.Controls
                 }
             }
 
-            graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
+           graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
 
             try
             {
