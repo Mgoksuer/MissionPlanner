@@ -71,29 +71,7 @@ namespace MissionPlanner.GCSViews
         //The file path of the selected script
         internal string selectedscript = "";
 
-        private void InitializeBlackBox()
-        {
-            pnlBlackBox = new Panel();
-            pnlBlackBox.Name = "pnlBlackBox";
-            pnlBlackBox.BackColor = Color.Black;        // İçini siyah yap
-            pnlBlackBox.BorderStyle = BorderStyle.FixedSingle; // Kutuyu görünür yapmak için kenarlık ekle
-            pnlBlackBox.Dock = DockStyle.Fill; // Hücreyi tamamen doldursun
-
-            // tableLayoutPanelVideoAndHud kontrolünü bulup paneli ekle
-            // Bu kontrol Designer.cs'de tanımlandığı için burada doğrudan erişilebilir olmalı.
-            if (this.tableLayoutPanelVideoAndHud != null)
-            {
-                // Paneli, tableLayoutPanelVideoAndHud'ın ikinci sütununa (indeks 1), ilk satırına (indeks 0) ekleyin
-                this.tableLayoutPanelVideoAndHud.Controls.Add(pnlBlackBox, 1, 0);
-            }
-            else
-            {
-                // Eğer tableLayoutPanelVideoAndHud bulunamazsa (ki olmamalı), direkt FlightData'ya ekle
-                // Bu sadece bir fallback'dir ve önceki durumdaki gibi üstte çıkabilir.
-                this.Controls.Add(pnlBlackBox);
-                System.Diagnostics.Debug.WriteLine("tableLayoutPanelVideoAndHud bulunamadı, siyah kutu FlightData'nın Controls'una eklendi.");
-            }
-        }
+       
 
         private static readonly ILog log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         AviWriter aviwriter;
@@ -278,7 +256,7 @@ namespace MissionPlanner.GCSViews
             log.Info("Ctor Start");
 
             InitializeComponent();
-            InitializeBlackBox();
+           
 
 
             log.Info("Components Done");
