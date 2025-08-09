@@ -2165,6 +2165,18 @@ namespace MissionPlanner
             {
             }
 
+            log.Info("closing fd");
+            try
+            {
+                if (FlightData != null)
+                {
+                    FlightData.CleanupVlcPlayer(); // Bu metot içinde artýk SSH temizleme de olacak
+                }
+            }
+            catch
+            {
+            }
+
             // save config
             SaveConfig();
 
