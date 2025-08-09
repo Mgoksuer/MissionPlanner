@@ -195,6 +195,7 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.btnDisconnectSSH = new MissionPlanner.Controls.MyButton();
             this.txtSSHOutput = new System.Windows.Forms.TextBox();
             this.txtSSHPassword = new System.Windows.Forms.TextBox();
             this.label9 = new System.Windows.Forms.Label();
@@ -256,7 +257,6 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.btnDisconnectSSH = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2463,6 +2463,14 @@ namespace MissionPlanner.GCSViews
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
             // 
+            // btnDisconnectSSH
+            // 
+            resources.ApplyResources(this.btnDisconnectSSH, "btnDisconnectSSH");
+            this.btnDisconnectSSH.Name = "btnDisconnectSSH";
+            this.btnDisconnectSSH.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnDisconnectSSH.UseVisualStyleBackColor = true;
+            this.btnDisconnectSSH.Click += new System.EventHandler(this.btnDisconnectSSH_Click);
+            // 
             // txtSSHOutput
             // 
             resources.ApplyResources(this.txtSSHOutput, "txtSSHOutput");
@@ -2958,14 +2966,6 @@ namespace MissionPlanner.GCSViews
             // bindingSourceStatusTab
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
-            // 
-            // btnDisconnectSSH
-            // 
-            resources.ApplyResources(this.btnDisconnectSSH, "btnDisconnectSSH");
-            this.btnDisconnectSSH.Name = "btnDisconnectSSH";
-            this.btnDisconnectSSH.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnDisconnectSSH.UseVisualStyleBackColor = true;
-            this.btnDisconnectSSH.Click += new System.EventHandler(this.btnDisconnectSSH_Click);
             // 
             // FlightData
             // 

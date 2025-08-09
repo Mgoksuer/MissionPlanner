@@ -6811,12 +6811,12 @@ namespace MissionPlanner.GCSViews
                     {
                         this.BeginInvoke((MethodInvoker)delegate {
                             txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
-                            txtSSHOutput.AppendText($"Cihazda '{username}' kullanıcısının ana dizinini ('ls -l /home/{username}') listeleme komutu çalıştırılıyor...\r\n");
+                            txtSSHOutput.AppendText($"Cihazda '{username}' kullanıcısının ana dizinini ('cd /home/{username}/Downloads') listeleme komutu çalıştırılıyor...\r\n");
                             btnDisconnectSSH.Enabled = true;
                             myButton4.Enabled = true;
                         });
 
-                        var command = sshClient.CreateCommand($"ls -l /home/{username}");
+                        var command = sshClient.CreateCommand($"cd /home/{username}/Downloads");
                         var result = command.Execute();
 
                         this.BeginInvoke((MethodInvoker)delegate {
