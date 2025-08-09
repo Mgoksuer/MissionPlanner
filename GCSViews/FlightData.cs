@@ -6879,6 +6879,8 @@ namespace MissionPlanner.GCSViews
         }
 
 
+
+
         public void CleanupVlcPlayer()
         {
             if (vlcPlayer != null) 
@@ -6911,5 +6913,52 @@ namespace MissionPlanner.GCSViews
             }
         }
 
+        private async void btnStartScript_Click(object sender, EventArgs e) // Metot adı güncellendi
+        {
+            // Butonu devre dışı bırak ve durumu güncelle
+            btnStartScript.Enabled = false; // Buradaki buton adı da güncellendi
+            txtSSHOutput.AppendText("\r\nScript başlatılıyor...\r\n");
+            Application.DoEvents();
+
+            // ÖNEMLİ: sshClient'ın bağlı olduğundan emin olun!
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                txtSSHOutput.AppendText("\r\nJetson'a SSH bağlantısı kurulu değil.\r\n");
+                btnStartScript.Enabled = true; // Buradaki buton adı da güncellendi
+                return;
+            }
+
+            // Jetson üzerindeki Python scriptinin bulunduğu dizin ve adı
+            string scriptDirectoryOnJetson = "/home/siha/Downloads/"; // Scriptin bulunduğu dizin
+            string scriptName = "rtsp_manisa_intikal.py";            // Scriptin adı
+
+            // SSH üzerinden Jetson'da çalıştırılacak komut.
+            string commandToExecute = $"cd {scriptDirectoryOnJetson} && nohup python3 {scriptName} > /dev/null 2>&1 &";
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    // SSH komutunu oluştur ve çalıştır
+                    using (var command = sshClient.CreateCommand(commandToExecute))
+                    {
+                        command.Execute();
+
+                        // Komutun başarıyla gönderildiğini UI'ya bildir
+                        this.BeginInvoke((MethodInvoker)delegate {
+                            txtSSHOutput.AppendText($"\r\n'{scriptName}' başlatma komutu gönderildi.\r\n");
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nScript başlatma komutu gönderilirken SSH hatası: {ex.Message}\r\n");
+                    });
+                }
+            });
+
+            btnStartScript.Enabled = true; // Buradaki buton adı da güncellendi
+        }
     }
 }

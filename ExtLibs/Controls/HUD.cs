@@ -271,7 +271,7 @@ namespace MissionPlanner.Controls
             objBitmap.MakeTransparent();
 
             graphicsObject = this;
-            //graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
+            graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
         }
 
         protected override void Dispose(bool disposing)
@@ -1929,7 +1929,7 @@ namespace MissionPlanner.Controls
                 {
                     objBitmap = new Bitmap(this.Width, this.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                     objBitmap.MakeTransparent();
-                    //graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
+                    graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
                     
                     graphicsObjectGDIP.SmoothingMode = SmoothingMode.HighSpeed;
                     graphicsObjectGDIP.InterpolationMode = InterpolationMode.NearestNeighbor;
@@ -3718,8 +3718,8 @@ namespace MissionPlanner.Controls
                     return;
                 }
             }
-
-           //graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
+ 
+            graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
 
             try
             {

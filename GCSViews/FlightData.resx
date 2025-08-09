@@ -5284,28 +5284,28 @@
   <data name="&gt;&gt;splitContainer3.Panel1.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
-  <data name="startScript.Location" type="System.Drawing.Point, System.Drawing">
-    <value>8, 273</value>
+  <data name="btnStartScript.Location" type="System.Drawing.Point, System.Drawing">
+    <value>8, 272</value>
   </data>
-  <data name="startScript.Size" type="System.Drawing.Size, System.Drawing">
+  <data name="btnStartScript.Size" type="System.Drawing.Size, System.Drawing">
     <value>75, 23</value>
   </data>
-  <data name="startScript.TabIndex" type="System.Int32, mscorlib">
+  <data name="btnStartScript.TabIndex" type="System.Int32, mscorlib">
     <value>11</value>
   </data>
-  <data name="startScript.Text" xml:space="preserve">
+  <data name="btnStartScript.Text" xml:space="preserve">
     <value>Script'i Başlat</value>
   </data>
-  <data name="&gt;&gt;startScript.Name" xml:space="preserve">
-    <value>startScript</value>
+  <data name="&gt;&gt;btnStartScript.Name" xml:space="preserve">
+    <value>btnStartScript</value>
   </data>
-  <data name="&gt;&gt;startScript.Type" xml:space="preserve">
+  <data name="&gt;&gt;btnStartScript.Type" xml:space="preserve">
     <value>MissionPlanner.Controls.MyButton, MissionPlanner.Controls, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null</value>
   </data>
-  <data name="&gt;&gt;startScript.Parent" xml:space="preserve">
+  <data name="&gt;&gt;btnStartScript.Parent" xml:space="preserve">
     <value>pnlRTSPInput</value>
   </data>
-  <data name="&gt;&gt;startScript.ZOrder" xml:space="preserve">
+  <data name="&gt;&gt;btnStartScript.ZOrder" xml:space="preserve">
     <value>0</value>
   </data>
   <data name="btnDisconnectSSH.Enabled" type="System.Boolean, mscorlib">
