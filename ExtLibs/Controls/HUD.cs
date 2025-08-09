@@ -1930,7 +1930,7 @@ namespace MissionPlanner.Controls
                     objBitmap = new Bitmap(this.Width, this.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                     objBitmap.MakeTransparent();
                     //graphicsObjectGDIP = new GdiGraphics(Graphics.FromImage(objBitmap));
-
+                    
                     graphicsObjectGDIP.SmoothingMode = SmoothingMode.HighSpeed;
                     graphicsObjectGDIP.InterpolationMode = InterpolationMode.NearestNeighbor;
                     graphicsObjectGDIP.CompositingMode = CompositingMode.SourceOver;

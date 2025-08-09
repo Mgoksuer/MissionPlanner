@@ -257,6 +257,7 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
+            this.startScript = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2449,6 +2450,7 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
+            this.pnlRTSPInput.Controls.Add(this.startScript);
             this.pnlRTSPInput.Controls.Add(this.btnDisconnectSSH);
             this.pnlRTSPInput.Controls.Add(this.txtSSHOutput);
             this.pnlRTSPInput.Controls.Add(this.txtSSHPassword);
@@ -2967,6 +2969,13 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
+            // startScript
+            // 
+            resources.ApplyResources(this.startScript, "startScript");
+            this.startScript.Name = "startScript";
+            this.startScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.startScript.UseVisualStyleBackColor = true;
+            // 
             // FlightData
             // 
             this.Controls.Add(this.MainH);
@@ -3309,5 +3318,6 @@ namespace MissionPlanner.GCSViews
         private Label label8;
         private TextBox txtSSHOutput;
         private Controls.MyButton btnDisconnectSSH;
+        private Controls.MyButton startScript;
     }
 }
