@@ -6745,11 +6745,11 @@ namespace MissionPlanner.GCSViews
         {
 
         }
-        private void myButton4_Click(object sender, EventArgs e)// RTSP Yayına Bağlanma butnu
+        private void myButton4_Click(object sender, EventArgs e) // RTSP Yayına Bağlanma butonu
         {
-            myButton4.Enabled = false;
+            myButton4.Enabled = true; 
             string rtspAddress = txtRTSPAddress.Text.Trim();
-
+            btnDisconnectRTSP.Enabled = false;
             if (!string.IsNullOrEmpty(rtspAddress))
             {
                 try
@@ -6759,16 +6759,42 @@ namespace MissionPlanner.GCSViews
                         vlcPlayer.Stop();
                     }
 
-                    vlcPlayer.SetMedia(new Uri(rtspAddress));
+                    string[] mediaOptions = new string[]
+                    {
+                ":network-caching=300", 
+                ":live-caching=300",   
+                    };
+
+                    vlcPlayer.SetMedia(new Uri(rtspAddress), mediaOptions);
                     vlcPlayer.Play();
+                    btnDisconnectRTSP.Enabled = true; 
+                    txtSSHOutput.AppendText($"\r\nRTSP yayınına bağlanıldı: {rtspAddress}\r\n");
                 }
-                catch (Exception ex){
+                catch (Exception ex)
+                {
                     MessageBox.Show("RTSP yayına bağlanırken bir hata oluştu: " + ex.Message, "Bağlantı Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    btnDisconnectRTSP.Enabled = false;
                 }
             }
-            else // Eğer RTSP adresi boş bırakıldıysa kullanıcıya uyar
+            else
             {
                 MessageBox.Show("Lütfen bağlanmak için bir RTSP adresi girin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                btnDisconnectRTSP.Enabled = false;
+            }
+            myButton4.Enabled = true;
+        }
+
+        private void btnDisconnectRTSP_Click(object sender, EventArgs e)
+        {
+            if (vlcPlayer != null && vlcPlayer.IsPlaying)
+            {
+                vlcPlayer.Stop();
+                txtSSHOutput.AppendText("\r\nRTSP yayını bağlantısı kesildi.\r\n");
+                btnDisconnectRTSP.Enabled = false;
+            }
+            else
+            {
+                txtSSHOutput.AppendText("\r\nZaten aktif bir RTSP yayını yok.\r\n");
             }
         }
 
@@ -6813,7 +6839,7 @@ namespace MissionPlanner.GCSViews
                             txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
                             txtSSHOutput.AppendText($"Cihazda '{username}' kullanıcısının ana dizinini ('cd /home/{username}/Downloads') listeleme komutu çalıştırılıyor...\r\n");
                             btnDisconnectSSH.Enabled = true;
-                            myButton4.Enabled = true;
+
                         });
 
                         var command = sshClient.CreateCommand($"cd /home/{username}/Downloads");
@@ -6848,8 +6874,6 @@ namespace MissionPlanner.GCSViews
                             txtSSHOutput.AppendText($"Ağ hatası: {socketEx.SocketErrorCode}. Jetson'a erişilemiyor veya IP adresi yanlış.\r\n");
                         }
                     });
-
-                    // Hata oluşursa bağlantıyı temizle
                     CleanupSshClient();
                 }
             });
@@ -6875,22 +6899,78 @@ namespace MissionPlanner.GCSViews
             txtSSHAddress.Enabled = true;
             txtSSHPassword.Enabled = true;
             btnDisconnectSSH.Enabled = false;
-            myButton4.Enabled = false;
+            
         }
 
+        private async void btnStartScript_Click(object sender, EventArgs e)
+        {
 
+            txtSSHOutput.AppendText("\r\nJetson'da script başlatılıyor (SSH oturumu ile bağlantılı)...\r\n");
+            Application.DoEvents();
 
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil. Lütfen önce 'Jetsona Bağlan' butonuna basın.\r\n");
+                btnStartScript.Enabled = true;
+                return;
+            }
+            string scriptDirectoryOnJetson = "/home/ubuntu/Downloads/";
+            string scriptName = "rtsp_test_server.py";
+            string commandToExecute = $"cd {scriptDirectoryOnJetson} && python3 {scriptName}";
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    using (var command = sshClient.CreateCommand(commandToExecute))
+                    {
+                        string result = command.Execute();
+                        string error = command.Error;
+
+                        this.BeginInvoke((MethodInvoker)delegate {
+                            txtSSHOutput.AppendText($"\r\n'{scriptName}' scripti Jetson'da başlatıldı.\r\n");
+                            txtSSHOutput.AppendText("--- Script Çıktısı Başlangıcı ---\r\n");
+                            txtSSHOutput.AppendText(result + "\r\n"); // Scriptin standart çıktısını göster
+                            if (!string.IsNullOrEmpty(error))
+                            {
+                                txtSSHOutput.AppendText("--- Script Hata Çıktısı (stderr) Başlangıcı ---\r\n" + error + "\r\n"); // Scriptin hata çıktısını göster
+                            }
+                            txtSSHOutput.AppendText("--- Script Çıktısı Sonu ---\r\n");
+                            txtSSHOutput.AppendText("RTSP yayını başlatıldıysa, şimdi bağlanabilirsiniz.\r\n");
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nScript çalıştırılırken SSH hatası: {ex.Message}\r\n");
+                    });
+                }
+            });
+
+            btnStartScript.Enabled = true; // Butonu tekrar etkinleştir
+        }
 
         public void CleanupVlcPlayer()
         {
-            if (vlcPlayer != null) 
+            if (vlcPlayer != null)
             {
-                if (vlcPlayer.IsPlaying) 
+                if (vlcPlayer.IsPlaying)
                 {
                     vlcPlayer.Stop(); 
                 }
                 vlcPlayer.Dispose(); 
-                vlcPlayer = null; 
+                vlcPlayer = null;
+                if (btnDisconnectRTSP.InvokeRequired)
+                {
+                    btnDisconnectRTSP.BeginInvoke((MethodInvoker)delegate {
+                        btnDisconnectRTSP.Enabled = false;
+                    });
+                }
+                else
+                {
+                    btnDisconnectRTSP.Enabled = false;
+                }
             }
         }
 
@@ -6911,54 +6991,6 @@ namespace MissionPlanner.GCSViews
                 sshClient.Dispose();   
                 sshClient = null;   
             }
-        }
-
-        private async void btnStartScript_Click(object sender, EventArgs e) // Metot adı güncellendi
-        {
-            // Butonu devre dışı bırak ve durumu güncelle
-            btnStartScript.Enabled = false; // Buradaki buton adı da güncellendi
-            txtSSHOutput.AppendText("\r\nScript başlatılıyor...\r\n");
-            Application.DoEvents();
-
-            // ÖNEMLİ: sshClient'ın bağlı olduğundan emin olun!
-            if (sshClient == null || !sshClient.IsConnected)
-            {
-                txtSSHOutput.AppendText("\r\nJetson'a SSH bağlantısı kurulu değil.\r\n");
-                btnStartScript.Enabled = true; // Buradaki buton adı da güncellendi
-                return;
-            }
-
-            // Jetson üzerindeki Python scriptinin bulunduğu dizin ve adı
-            string scriptDirectoryOnJetson = "/home/siha/Downloads/"; // Scriptin bulunduğu dizin
-            string scriptName = "rtsp_manisa_intikal.py";            // Scriptin adı
-
-            // SSH üzerinden Jetson'da çalıştırılacak komut.
-            string commandToExecute = $"cd {scriptDirectoryOnJetson} && nohup python3 {scriptName} > /dev/null 2>&1 &";
-
-            await Task.Run(() =>
-            {
-                try
-                {
-                    // SSH komutunu oluştur ve çalıştır
-                    using (var command = sshClient.CreateCommand(commandToExecute))
-                    {
-                        command.Execute();
-
-                        // Komutun başarıyla gönderildiğini UI'ya bildir
-                        this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText($"\r\n'{scriptName}' başlatma komutu gönderildi.\r\n");
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    this.BeginInvoke((MethodInvoker)delegate {
-                        txtSSHOutput.AppendText($"\r\nScript başlatma komutu gönderilirken SSH hatası: {ex.Message}\r\n");
-                    });
-                }
-            });
-
-            btnStartScript.Enabled = true; // Buradaki buton adı da güncellendi
-        }
+        } 
     }
 }

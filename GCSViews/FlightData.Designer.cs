@@ -195,6 +195,8 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.btnDisconnectRTSP = new MissionPlanner.Controls.MyButton();
+            this.btnStartScript = new MissionPlanner.Controls.MyButton();
             this.btnDisconnectSSH = new MissionPlanner.Controls.MyButton();
             this.txtSSHOutput = new System.Windows.Forms.TextBox();
             this.txtSSHPassword = new System.Windows.Forms.TextBox();
@@ -257,7 +259,6 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.btnStartScript = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2450,6 +2451,7 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
+            this.pnlRTSPInput.Controls.Add(this.btnDisconnectRTSP);
             this.pnlRTSPInput.Controls.Add(this.btnStartScript);
             this.pnlRTSPInput.Controls.Add(this.btnDisconnectSSH);
             this.pnlRTSPInput.Controls.Add(this.txtSSHOutput);
@@ -2464,6 +2466,22 @@ namespace MissionPlanner.GCSViews
             resources.ApplyResources(this.pnlRTSPInput, "pnlRTSPInput");
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
+            // 
+            // btnDisconnectRTSP
+            // 
+            resources.ApplyResources(this.btnDisconnectRTSP, "btnDisconnectRTSP");
+            this.btnDisconnectRTSP.Name = "btnDisconnectRTSP";
+            this.btnDisconnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnDisconnectRTSP.UseVisualStyleBackColor = true;
+            this.btnDisconnectRTSP.Click += new System.EventHandler(this.btnDisconnectRTSP_Click);
+            // 
+            // btnStartScript
+            // 
+            resources.ApplyResources(this.btnStartScript, "btnStartScript");
+            this.btnStartScript.Name = "btnStartScript";
+            this.btnStartScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartScript.UseVisualStyleBackColor = true;
+            this.btnStartScript.Click += new System.EventHandler(this.btnStartScript_Click);
             // 
             // btnDisconnectSSH
             // 
@@ -2969,14 +2987,6 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
-            // btnStartScript
-            // 
-            resources.ApplyResources(this.btnStartScript, "btnStartScript");
-            this.btnStartScript.Name = "btnStartScript";
-            this.btnStartScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStartScript.UseVisualStyleBackColor = true;
-            this.btnStartScript.Click += new System.EventHandler(this.btnStartScript_Click);
-            // 
             // FlightData
             // 
             this.Controls.Add(this.MainH);
@@ -3320,5 +3330,6 @@ namespace MissionPlanner.GCSViews
         private TextBox txtSSHOutput;
         private Controls.MyButton btnDisconnectSSH;
         private Controls.MyButton btnStartScript;
+        private Controls.MyButton btnDisconnectRTSP;
     }
 }
