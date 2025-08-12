@@ -6991,6 +6991,40 @@ namespace MissionPlanner.GCSViews
                 sshClient.Dispose();   
                 sshClient = null;   
             }
-        } 
+        }
+
+        private void btnRunAutoMissionScript_Click(object sender, EventArgs e)
+        {
+            btnRunAutoMissionScript.Enabled = false;
+
+            txtSSHOutput.AppendText("\r\n'auto_mission.py' scripti başlatılıyor...\r\n"); 
+            Application.DoEvents(); 
+
+            string scriptPath = Path.Combine(Settings.GetRunningDirectory(), "Scripts", "auto_mission.py");
+
+            if (!File.Exists(scriptPath))
+            {
+                MessageBox.Show($"'auto_mission.py' scripti bulunamadı: {scriptPath}\r\nLütfen scriptin Mission Planner'ın 'Scripts' klasöründe olduğundan emin olun.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnRunAutoMissionScript.Enabled = true;
+                return;
+            }
+
+            try
+            {
+                Script scriptRunner = new Script(false); 
+                scriptRunner.runScript(scriptPath);
+
+                txtSSHOutput.AppendText($"\r\n'auto_mission.py' scripti başarıyla çalıştırıldı.\r\n");
+                txtSSHOutput.AppendText("Scriptin çıktısını ve durumunu takip etmek için 'Terminal' sekmesini kontrol edin veya scripti doğrudan loglara yazdırın.\r\n");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"'auto_mission.py' scriptini başlatırken hata oluştu: {ex.Message}", "Script Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnRunAutoMissionScript.Enabled = true; // Butonu tekrar etkinleştir
+            }
+        }
     }
 }

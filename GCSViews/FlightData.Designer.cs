@@ -259,6 +259,7 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
+            this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2451,6 +2452,7 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
+            this.pnlRTSPInput.Controls.Add(this.btnRunAutoMissionScript);
             this.pnlRTSPInput.Controls.Add(this.btnDisconnectRTSP);
             this.pnlRTSPInput.Controls.Add(this.btnStartScript);
             this.pnlRTSPInput.Controls.Add(this.btnDisconnectSSH);
@@ -2835,7 +2837,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 360D;
+            this.windDir1.Direction = 180D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -2986,6 +2988,14 @@ namespace MissionPlanner.GCSViews
             // bindingSourceStatusTab
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
+            // 
+            // btnRunAutoMissionScript
+            // 
+            resources.ApplyResources(this.btnRunAutoMissionScript, "btnRunAutoMissionScript");
+            this.btnRunAutoMissionScript.Name = "btnRunAutoMissionScript";
+            this.btnRunAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnRunAutoMissionScript.UseVisualStyleBackColor = true;
+            this.btnRunAutoMissionScript.Click += new System.EventHandler(this.btnRunAutoMissionScript_Click);
             // 
             // FlightData
             // 
@@ -3331,5 +3341,6 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton btnDisconnectSSH;
         private Controls.MyButton btnStartScript;
         private Controls.MyButton btnDisconnectRTSP;
+        private Controls.MyButton btnRunAutoMissionScript;
     }
 }
