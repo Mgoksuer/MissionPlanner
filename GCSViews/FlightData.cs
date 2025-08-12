@@ -6996,35 +6996,47 @@ namespace MissionPlanner.GCSViews
         private void btnRunAutoMissionScript_Click(object sender, EventArgs e)
         {
             btnRunAutoMissionScript.Enabled = false;
+            Application.DoEvents();
 
-            txtSSHOutput.AppendText("\r\n'auto_mission.py' scripti başlatılıyor...\r\n"); 
-            Application.DoEvents(); 
-
-            string scriptPath = Path.Combine(Settings.GetRunningDirectory(), "Scripts", "auto_mission.py");
+            string scriptPath = @"C:\Users\skywa\Downloads\auto_mission.py";
 
             if (!File.Exists(scriptPath))
             {
-                MessageBox.Show($"'auto_mission.py' scripti bulunamadı: {scriptPath}\r\nLütfen scriptin Mission Planner'ın 'Scripts' klasöründe olduğundan emin olun.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Script bulunamadı: {scriptPath}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 btnRunAutoMissionScript.Enabled = true;
                 return;
             }
 
             try
             {
-                Script scriptRunner = new Script(false); 
-                scriptRunner.runScript(scriptPath);
+                var psi = new System.Diagnostics.ProcessStartInfo();
+                psi.FileName = "python"; // veya python3
+                psi.Arguments = $"\"{scriptPath}\"";
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
 
-                txtSSHOutput.AppendText($"\r\n'auto_mission.py' scripti başarıyla çalıştırıldı.\r\n");
-                txtSSHOutput.AppendText("Scriptin çıktısını ve durumunu takip etmek için 'Terminal' sekmesini kontrol edin veya scripti doğrudan loglara yazdırın.\r\n");
+                var process = System.Diagnostics.Process.Start(psi);
+
+                string output = process.StandardOutput.ReadToEnd();
+                string errors = process.StandardError.ReadToEnd();
+
+                process.WaitForExit();
+
+                txtSSHOutput.AppendText($"\r\n[STDOUT]\r\n{output}");
+                if (!string.IsNullOrWhiteSpace(errors))
+                    txtSSHOutput.AppendText($"\r\n[STDERR]\r\n{errors}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"'auto_mission.py' scriptini başlatırken hata oluştu: {ex.Message}", "Script Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Script çalıştırma hatası: {ex.Message}", "Script Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-                btnRunAutoMissionScript.Enabled = true; // Butonu tekrar etkinleştir
+                btnRunAutoMissionScript.Enabled = true;
             }
         }
+
     }
 }
