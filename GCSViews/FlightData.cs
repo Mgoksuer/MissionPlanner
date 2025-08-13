@@ -6898,6 +6898,8 @@ namespace MissionPlanner.GCSViews
         }
         private void btnDisconnectSSH_Click(object sender, EventArgs e)
         {
+            CleanupScriptStream(); // Script izlemeyi durdur
+            CleanupSshClient();
             if (sshClient != null && sshClient.IsConnected)
             {
                 CleanupSshClient();
@@ -6917,169 +6919,143 @@ namespace MissionPlanner.GCSViews
         }
         
         private uint _remotePythonScriptPid = 0;
-        private async void btnStartScript_Click(object sender, EventArgs e) 
+        private ShellStream _scriptShellStream;
+        private CancellationTokenSource _scriptReadCts;
+
+        private async void btnStartScript_Click(object sender, EventArgs e)
         {
-            btnStartScript.Enabled = false; // Başlat butonunu devre dışı bırak
-            txtSSHOutput.AppendText("\r\nJetson'da RTSP Python scripti başlatılıyor...\r\n");
-            Application.DoEvents();
+            btnStartScript.Enabled = false;
+            txtSSHOutput.AppendText("\r\nJetson'da RTSP Python scripti başlatılıyor ve çıktılar izleniyor...\r\n");
 
             if (sshClient == null || !sshClient.IsConnected)
             {
-                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil. Lütfen önce 'Jetsona Bağlan' butonuna basın.\r\n");
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil!\r\n");
                 btnStartScript.Enabled = true;
                 return;
             }
 
-            string scriptDirectoryOnJetson = "/home/ubuntu/Downloads/";
-            string scriptName = "rtsp_test_server.py"; // Jetson'da çalıştırılacak scriptin adı
-            string pythonExecutable = "python3"; // Jetson'daki Python yürütülebilir dosyasının adı
+            // Önceki işlemleri temizle
+            await CleanupRemotePythonProcess();
+            CleanupScriptStream();
 
-            // Önceki çalışan Jetson Python scriptlerini temizle (pgrep ile)
-            await CleanupRemotePythonProcess(); // Bu metot aşağıdaki gibi olacak
+            string scriptDirectory = "/home/ubuntu/Downloads/";
+            string scriptName = "rtsp_test_server.py";
+            string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
 
-            _remotePythonScriptPid = 0; // Yeni bir PID yakalamak için sıfırla
-
-            await Task.Run(async () =>
+            try
             {
-                try
-                {
-                    using (var shellStream = sshClient.CreateShellStream("xterm", 80, 24, 800, 600, 1024))
-                    {
-                        shellStream.WriteLine($"cd {scriptDirectoryOnJetson}");
-                        await Task.Delay(200);
-                        string cdOutput = shellStream.Read();
+                _scriptShellStream = sshClient.CreateShellStream("customShell", 80, 24, 800, 600, 1024);
+                _scriptReadCts = new CancellationTokenSource();
 
-                        shellStream.WriteLine($"nohup {pythonExecutable} {scriptName} > /dev/null 2>&1 & echo $!");
-                        await Task.Delay(1000);
+                // Komutu çalıştır
+                _scriptShellStream.WriteLine(pythonCmd);
+                _scriptShellStream.Flush();
 
-                        string pidRawOutput = shellStream.Read();
+                // Çıktıları okumak için async task başlat
+                _ = Task.Run(() => ReadScriptOutputAsync(_scriptReadCts.Token), _scriptReadCts.Token);
 
-                        uint parsedPid = 0;
-                        string[] lines = pidRawOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-                        foreach (string line in lines)
-                        {
-                            if (uint.TryParse(line.Trim(), out parsedPid))
-                            {
-                                _remotePythonScriptPid = parsedPid;
-                                break;
-                            }
-                        }
-
-                        if (_remotePythonScriptPid != 0)
-                        {
-                            this.BeginInvoke((MethodInvoker)delegate
-                            {
-                                txtSSHOutput.AppendText($"\r\nJetson'da '{scriptName}' scripti PID {_remotePythonScriptPid} ile başarıyla başlatıldı.\r\n");
-                                btnStopScript.Enabled = true; // "btnStopScript" butonunu etkinleştir
-                            });
-                        }
-                        else
-                        {
-                            this.BeginInvoke((MethodInvoker)delegate
-                            {
-                                txtSSHOutput.AppendText($"\r\nJetson'da script başlatıldı ancak PID alınamadı. Ham çıktı: \r\n---Başlangıç---\r\n{pidRawOutput}\r\n---Bitiş---\r\n");
-                                txtSSHOutput.AppendText("Lütfen scriptin Jetson'da doğru yolda olduğundan, çalıştırılabilir olduğundan ve 'echo $!' çıktısının tek başına bir sayı olduğundan emin olun.\r\n");
-                                btnStopScript.Enabled = false; // Başlatma başarısızsa durdurma butonunu devre dışı bırak
-                            });
-                        }
-                    }
-                }
-                catch (Renci.SshNet.Common.SshException sshEx)
-                {
-                    this.BeginInvoke((MethodInvoker)delegate
-                    {
-                        txtSSHOutput.AppendText($"\r\nJetson Script Başlatma SSH Hatası: {sshEx.Message}\r\n");
-                        if (sshEx.InnerException != null)
-                        {
-                            txtSSHOutput.AppendText($"Detay: {sshEx.InnerException.Message}\r\n");
-                        }
-                        btnStopScript.Enabled = false;
-                    });
-                }
-                catch (Exception ex)
-                {
-                    this.BeginInvoke((MethodInvoker)delegate
-                    {
-                        txtSSHOutput.AppendText($"\r\nJetson Script Başlatma Beklenmedik Hata: {ex.Message}\r\n");
-                        btnStopScript.Enabled = false;
-                    });
-                }
-            });
-
-            btnStartScript.Enabled = true; // Başlatma işlemi tamamlandığında kendi butonunu tekrar etkinleştir
+                btnStopScript.Enabled = true;
+                txtSSHOutput.AppendText("\r\nScript çalıştırıldı. Çıktılar bekleniyor...\r\n");
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nHata: {ex.Message}\r\n");
+                CleanupScriptStream();
+                btnStartScript.Enabled = true;
+            }
         }
-        private async void btnStopScript_Click(object sender, EventArgs e) 
+
+        private async Task ReadScriptOutputAsync(CancellationToken token)
         {
-            if (sshClient == null || !sshClient.IsConnected)
-            {
-                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil. Uzak scripti durdurmak için önce bağlanmalısınız.\r\n");
-                return;
-            }
+            var buffer = new byte[1024];
+            var outputBuilder = new StringBuilder();
 
-            if (_remotePythonScriptPid == 0)
+            try
             {
-                txtSSHOutput.AppendText("\r\nJetson'da çalışan bir Python scripti PID'si bulunamadı (belki zaten durdu?).\r\n");
-                return;
-            }
-
-            txtSSHOutput.AppendText($"\r\nJetson'da uzak Python scripti (PID: {_remotePythonScriptPid}) durduruluyor...\r\n");
-            btnStopScript.Enabled = false; // Durdur butonunu geçici olarak devre dışı bırak
-            btnStartScript.Enabled = false; // Bu süreçte başlat butonunu da devre dışı bırak
-
-            await Task.Run(() =>
-            {
-                try
+                while (!token.IsCancellationRequested && _scriptShellStream != null)
                 {
-                    // kill -9: scripti kesin olarak sonlandırır.
-                    using (var command = sshClient.CreateCommand($"kill -9 {_remotePythonScriptPid}"))
+                    int bytesRead = await _scriptShellStream.ReadAsync(buffer, 0, buffer.Length, token);
+                    if (bytesRead > 0)
                     {
-                        string result = command.Execute(); // Standart çıktı (genellikle boş)
-                        string error = command.Error;     // Standart hata çıktısı ("No such process" gibi)
+                        string outputChunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        outputBuilder.Append(outputChunk);
 
-                        this.BeginInvoke((MethodInvoker)delegate
+                        // Satır satır işleme
+                        while (outputBuilder.ToString().Contains("\n"))
                         {
-                            // Hata çıktısı boşsa veya "No such process" içeriyorsa başarılı kabul et
-                            if (string.IsNullOrEmpty(error) || error.Contains("No such process"))
+                            int newLineIndex = outputBuilder.ToString().IndexOf('\n');
+                            string line = outputBuilder.ToString(0, newLineIndex).Trim();
+                            outputBuilder.Remove(0, newLineIndex + 1);
+
+                            if (!string.IsNullOrEmpty(line))
                             {
-                                txtSSHOutput.AppendText($"\r\nJetson'da uzak Python scripti (PID: {_remotePythonScriptPid}) başarıyla sonlandırıldı.\r\n");
-                                _remotePythonScriptPid = 0; // PID'yi sıfırla, artık script çalışmıyor
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[JETSON] {line}\r\n");
+                                });
                             }
-                            else
-                            {
-                                txtSSHOutput.AppendText($"\r\nJetson'da uzak scripti durdururken hata oluştu: {error}\r\n");
-                            }
-                            txtSSHOutput.AppendText($"Kill Komutu Çıktısı (stdout): '{result}'\r\n"); // Debug çıktısı
-                            txtSSHOutput.AppendText($"Kill Komutu Hata Çıktısı (stderr): '{error}'\r\n"); // Debug çıktısı
-                        });
+                        }
+                    }
+                    else
+                    {
+                        await Task.Delay(100, token); // CPU kullanımını azalt
                     }
                 }
-                catch (Renci.SshNet.Common.SshException sshEx)
+            }
+            catch (OperationCanceledException)
+            {
+                // İptal edildi, sessizce çık
+            }
+            catch (Exception ex)
+            {
+                this.BeginInvoke((MethodInvoker)delegate
                 {
-                    this.BeginInvoke((MethodInvoker)delegate
-                    {
-                        txtSSHOutput.AppendText($"\r\nJetson Script Durdurma SSH Hatası: {sshEx.Message}\r\n");
-                        if (sshEx.InnerException != null)
-                        {
-                            txtSSHOutput.AppendText($"Detay: {sshEx.InnerException.Message}\r\n");
-                        }
-                    });
-                }
-                catch (Exception ex)
+                    txtSSHOutput.AppendText($"\r\nÇıktı okuma hatası: {ex.Message}\r\n");
+                });
+            }
+            finally
+            {
+                this.BeginInvoke((MethodInvoker)delegate
                 {
-                    this.BeginInvoke((MethodInvoker)delegate
-                    {
-                        txtSSHOutput.AppendText($"\r\nJetson Script Durdurma Beklenmedik Hata: {ex.Message}\r\n");
-                    });
-                }
-            });
-
-            // Durdurma işlemi tamamlandığında buton durumunu ayarla
-            btnStartScript.Enabled = true; // Başlat butonunu tekrar etkinleştir
-            btnStopScript.Enabled = false; // Kendini devre dışı bırak
+                    txtSSHOutput.AppendText("\r\nScript çıktı izleme sonlandırıldı.\r\n");
+                    btnStartScript.Enabled = true;
+                    btnStopScript.Enabled = false;
+                });
+            }
         }
 
+        private void CleanupScriptStream()
+        {
+            _scriptReadCts?.Cancel();
+            _scriptReadCts?.Dispose();
+            _scriptReadCts = null;
 
+            if (_scriptShellStream != null)
+            {
+                _scriptShellStream.Close();
+                _scriptShellStream.Dispose();
+                _scriptShellStream = null;
+            }
+        }
+        private void btnStopScript_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // ShellStream'e Ctrl+C gönder (SIGINT)
+                if (_scriptShellStream != null && _scriptShellStream.CanWrite)
+                {
+                    _scriptShellStream.Write("\x03"); // Ctrl+C
+                    _scriptShellStream.Flush();
+                }
+
+                CleanupScriptStream();
+                txtSSHOutput.AppendText("\r\nScript durduruldu ve kaynaklar temizlendi.\r\n");
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nDurdurma hatası: {ex.Message}\r\n");
+            }
+        }
 
         private async void btnRunAutoMissionScript_Click(object sender, EventArgs e)
         {
