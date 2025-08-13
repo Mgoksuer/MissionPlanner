@@ -49,6 +49,8 @@ namespace MissionPlanner.GCSViews
 {
     public partial class FlightData : MyUserControl, IActivate, IDeactivate
     {
+        private System.Diagnostics.Process _pythonProcess;
+        private CancellationTokenSource _cancellationTokenSource;
         public System.Windows.Forms.SplitContainer MainH_Prop => MainH;      
         public System.Windows.Forms.SplitContainer SubMainLeft_Prop => SubMainLeft; 
         public static FlightData instance;
@@ -6993,10 +6995,12 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void btnRunAutoMissionScript_Click(object sender, EventArgs e)
+        private async void btnRunAutoMissionScript_Click(object sender, EventArgs e)
         {
+            // Buton durumlarını ayarla
             btnRunAutoMissionScript.Enabled = false;
-            Application.DoEvents();
+            btnStopAutoMissionScript.Enabled = true;
+            txtSSHOutput.AppendText("\r\nPython scripti başlatılıyor...\r\n");
 
             string scriptPath = @"C:\Users\skywa\Downloads\auto_mission.py";
 
@@ -7004,39 +7008,193 @@ namespace MissionPlanner.GCSViews
             {
                 MessageBox.Show($"Script bulunamadı: {scriptPath}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
                 return;
             }
 
+            // Her yeni başlatmada eski süreçleri temizle
+            // Bu, önceki çalışmalardan kalan zombi süreçleri temizleyecektir.
+            CleanupPythonProcess();
+
+            // Yeni bir CancellationTokenSource oluştur
+            _cancellationTokenSource = new CancellationTokenSource();
+            var token = _cancellationTokenSource.Token;
+
+            // ProcessStartInfo nesnesini burada tanımlayalım ki _pythonProcess'e atanabilsin
+            var psi = new ProcessStartInfo();
+            psi.FileName = "python"; // veya "python3"
+            psi.Arguments = $"\"{scriptPath}\"";
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true; // Konsol penceresi olmadan çalıştır
+
             try
             {
-                var psi = new System.Diagnostics.ProcessStartInfo();
-                psi.FileName = "python"; // veya python3
-                psi.Arguments = $"\"{scriptPath}\"";
-                psi.RedirectStandardOutput = true;
-                psi.RedirectStandardError = true;
-                psi.UseShellExecute = false;
-                psi.CreateNoWindow = true;
+                // Python sürecini başlat
+                _pythonProcess = Process.Start(psi);
 
-                var process = System.Diagnostics.Process.Start(psi);
+                if (_pythonProcess == null)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        MessageBox.Show("Python scripti başlatılamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    });
+                    return; // Metottan çık, çünkü süreç başlatılamadı
+                }
 
-                string output = process.StandardOutput.ReadToEnd();
-                string errors = process.StandardError.ReadToEnd();
+                // Process'in çıkışını ve hatalarını asenkron olarak okumak için görevler başlat
+                // Bu görevleri ayrı ayrı 'fire-and-forget' olarak başlatıyoruz,
+                // ancak CancellationToken ile kontrol edilebilecekler.
+                Task.Run(async () =>
+                {
+                    using (var reader = _pythonProcess.StandardOutput)
+                    {
+                        while (!reader.EndOfStream && !token.IsCancellationRequested)
+                        {
+                            string line = await reader.ReadLineAsync();
+                            if (line != null)
+                            {
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[PY_OUT] {line}\r\n");
+                                });
+                            }
+                        }
+                    }
+                }, token);
 
-                process.WaitForExit();
+                Task.Run(async () =>
+                {
+                    using (var reader = _pythonProcess.StandardError)
+                    {
+                        while (!reader.EndOfStream && !token.IsCancellationRequested)
+                        {
+                            string line = await reader.ReadLineAsync();
+                            if (line != null)
+                            {
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[PY_ERR] {line}\r\n");
+                                });
+                            }
+                        }
+                    }
+                }, token);
 
-                txtSSHOutput.AppendText($"\r\n[STDOUT]\r\n{output}");
-                if (!string.IsNullOrWhiteSpace(errors))
-                    txtSSHOutput.AppendText($"\r\n[STDERR]\r\n{errors}");
+                // Python sürecinin kendi kendine bitmesini bekle
+                // Bu bekleme işlemini ayrı bir Task içinde yapıyoruz ki UI thread'i bloke olmasın.
+                await Task.Run(() => _pythonProcess.WaitForExit(), token);
+
+                // Process bittikten sonra buraya gelinir (normal veya iptal sonucu)
+                if (token.IsCancellationRequested)
+                {
+                    txtSSHOutput.AppendText("\r\nPython scripti dışarıdan iptal edildi.\r\n");
+                }
+                else
+                {
+                    txtSSHOutput.AppendText("\r\nPython scripti tamamlandı.\r\n");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                txtSSHOutput.AppendText("\r\nPython scripti iptal edildi (OperationCanceledException yakalandı).\r\n");
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Script çalıştırma hatası: {ex.Message}", "Script Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                txtSSHOutput.AppendText($"\r\nScript çalıştırma hatası: {ex.Message}\r\n");
             }
             finally
             {
+                // Buton durumlarını sıfırla
                 btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
+                CleanupPythonProcess(); // Süreci ve token'ı temizle
             }
         }
 
+        private void btnStopAutoMissionScript_Click(object sender, EventArgs e)
+        {
+            // Python süreci aktif ve henüz sonlanmamışsa
+            if (_pythonProcess != null && !_pythonProcess.HasExited)
+            {
+                txtSSHOutput.AppendText("\r\nPython scriptini durdurma talebi gönderiliyor...\r\n");
+                try
+                {
+                    // CancellationTokenSource ile başlatılan görevi iptal et
+                    // Bu, Python scriptinin çıktı okuma görevlerini de durduracaktır.
+                    _cancellationTokenSource?.Cancel();
+
+                    // Python scriptine nazikçe kapanması için kısa bir süre ver (örneğin 500 milisaniye).
+                    // Python tarafında signal handler varsa, bu süre içinde kaynaklarını serbest bırakmaya başlayacaktır.
+                    if (!_pythonProcess.WaitForExit(500)) // 0.5 saniye bekle
+                    {
+                        // Eğer script hala çalışıyorsa (yani nazik kapanma işe yaramadıysa), zorla sonlandır.
+                        _pythonProcess.Kill();
+                        txtSSHOutput.AppendText("\r\nPython scripti nazikçe durdurulamadı, zorla sonlandırıldı.\r\n");
+                    }
+                    else
+                    {
+                        txtSSHOutput.AppendText("\r\nPython scripti başarıyla durduruldu.\r\n");
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Bu istisna, Process nesnesi zaten sonlanmış bir süreç için Kill() çağrıldığında oluşabilir.
+                    txtSSHOutput.AppendText("\r\nPython scripti zaten sona ermişti veya başlatılmamıştı.\r\n");
+                }
+                catch (Exception ex)
+                {
+                    // Diğer beklenmedik hataları yakala
+                    MessageBox.Show($"Script durdurma hatası: {ex.Message}", "Durdurma Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    txtSSHOutput.AppendText($"\r\nScript durdurma hatası: {ex.Message}\r\n");
+                }
+                finally
+                {
+                    // Durdurma işlemi tamamlandığında buton durumlarını sıfırla ve süreci temizle
+                    btnRunAutoMissionScript.Enabled = true;
+                    btnStopAutoMissionScript.Enabled = false;
+                    CleanupPythonProcess(); // Süreci ve CancellationTokenSource'ı temizle
+                }
+            }
+            else
+            {
+                txtSSHOutput.AppendText("\r\nÇalışan bir Python scripti bulunamadı.\r\n");
+                // Script zaten çalışmıyorsa butonları doğru duruma getir
+                btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
+            }
+        }
+        private void CleanupPythonProcess()
+        {
+            // CancellationTokenSource'ı iptal et ve dispose et
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null; // Bellek sızıntılarını önlemek için null yap
+
+            if (_pythonProcess != null)
+            {
+                if (!_pythonProcess.HasExited) // Eğer süreç hala çalışıyorsa
+                {
+                    try
+                    {
+                        // Python scriptinin nazikçe kapanması için kısa bir süre daha bekle
+                        if (!_pythonProcess.WaitForExit(1000)) // 1 saniye bekle
+                        {
+                            // Hala çalışıyorsa zorla sonlandır
+                            _pythonProcess.Kill();
+                            txtSSHOutput.AppendText("\r\nKalan Python süreci zorla sonlandırıldı ve temizlendi.\r\n");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        txtSSHOutput.AppendText($"\r\nKalan Python sürecini temizleme hatası: {ex.Message}\r\n");
+                    }
+                }
+                _pythonProcess.Dispose(); // Process nesnesini dispose et
+                _pythonProcess = null; // Bellek sızıntılarını önlemek için null yap
+            }
+        }
     }
 }
