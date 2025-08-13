@@ -7265,12 +7265,6 @@ namespace MissionPlanner.GCSViews
                                 txtSSHOutput.AppendText($"\r\nTemizleme sırasında hata (pgrep stderr): {error}\r\n");
                             });
                         }
-                        else
-                        {
-                            this.BeginInvoke((MethodInvoker)delegate {
-                                txtSSHOutput.AppendText($"\r\nTemizleme: Önceki '{scriptName}' scripti bulunamadı. Temizleme tamamlandı.\r\n");
-                            });
-                        }
                     }
                 }
                 catch (Renci.SshNet.Common.SshException sshEx)
