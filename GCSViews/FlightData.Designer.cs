@@ -195,6 +195,7 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.myButton5 = new MissionPlanner.Controls.MyButton();
             this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnDisconnectRTSP = new MissionPlanner.Controls.MyButton();
@@ -261,7 +262,6 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2473,6 +2473,14 @@ namespace MissionPlanner.GCSViews
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
             // 
+            // btnStopAutoMissionScript
+            // 
+            resources.ApplyResources(this.btnStopAutoMissionScript, "btnStopAutoMissionScript");
+            this.btnStopAutoMissionScript.Name = "btnStopAutoMissionScript";
+            this.btnStopAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStopAutoMissionScript.UseVisualStyleBackColor = true;
+            this.btnStopAutoMissionScript.Click += new System.EventHandler(this.btnStopAutoMissionScript_Click);
+            // 
             // myButton5
             // 
             resources.ApplyResources(this.myButton5, "myButton5");
@@ -2856,7 +2864,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 180D;
+            this.windDir1.Direction = 360D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -3007,14 +3015,6 @@ namespace MissionPlanner.GCSViews
             // bindingSourceStatusTab
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
-            // 
-            // btnStopAutoMissionScript
-            // 
-            resources.ApplyResources(this.btnStopAutoMissionScript, "btnStopAutoMissionScript");
-            this.btnStopAutoMissionScript.Name = "btnStopAutoMissionScript";
-            this.btnStopAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStopAutoMissionScript.UseVisualStyleBackColor = true;
-            this.btnStopAutoMissionScript.Click += new System.EventHandler(this.btnStopAutoMissionScript_Click);
             // 
             // FlightData
             // 

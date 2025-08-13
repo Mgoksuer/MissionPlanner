@@ -6953,51 +6953,10 @@ namespace MissionPlanner.GCSViews
             btnStartScript.Enabled = true; // Butonu tekrar etkinleştir
         }
 
-        public void CleanupVlcPlayer()
-        {
-            if (vlcPlayer != null)
-            {
-                if (vlcPlayer.IsPlaying)
-                {
-                    vlcPlayer.Stop(); 
-                }
-                vlcPlayer.Dispose(); 
-                vlcPlayer = null;
-                if (btnDisconnectRTSP.InvokeRequired)
-                {
-                    btnDisconnectRTSP.BeginInvoke((MethodInvoker)delegate {
-                        btnDisconnectRTSP.Enabled = false;
-                    });
-                }
-                else
-                {
-                    btnDisconnectRTSP.Enabled = false;
-                }
-            }
-        }
-
-        private void CleanupSshClient()
-        {
-            if (sshClient != null)
-            {
-                if (sshClient.IsConnected)
-                {
-                    try
-                    {
-                        sshClient.Disconnect();
-                    }
-                    catch (Exception ex)
-                    {
-                    }
-                }
-                sshClient.Dispose();   
-                sshClient = null;   
-            }
-        }
+        
 
         private async void btnRunAutoMissionScript_Click(object sender, EventArgs e)
         {
-            // Buton durumlarını ayarla
             btnRunAutoMissionScript.Enabled = false;
             btnStopAutoMissionScript.Enabled = true;
             txtSSHOutput.AppendText("\r\nPython scripti başlatılıyor...\r\n");
@@ -7011,27 +6970,21 @@ namespace MissionPlanner.GCSViews
                 btnStopAutoMissionScript.Enabled = false;
                 return;
             }
-
-            // Her yeni başlatmada eski süreçleri temizle
-            // Bu, önceki çalışmalardan kalan zombi süreçleri temizleyecektir.
             CleanupPythonProcess();
 
-            // Yeni bir CancellationTokenSource oluştur
             _cancellationTokenSource = new CancellationTokenSource();
             var token = _cancellationTokenSource.Token;
 
-            // ProcessStartInfo nesnesini burada tanımlayalım ki _pythonProcess'e atanabilsin
             var psi = new ProcessStartInfo();
             psi.FileName = "python"; // veya "python3"
             psi.Arguments = $"\"{scriptPath}\"";
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
             psi.UseShellExecute = false;
-            psi.CreateNoWindow = true; // Konsol penceresi olmadan çalıştır
+            psi.CreateNoWindow = true;
 
             try
             {
-                // Python sürecini başlat
                 _pythonProcess = Process.Start(psi);
 
                 if (_pythonProcess == null)
@@ -7040,12 +6993,8 @@ namespace MissionPlanner.GCSViews
                     {
                         MessageBox.Show("Python scripti başlatılamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     });
-                    return; // Metottan çık, çünkü süreç başlatılamadı
+                    return; 
                 }
-
-                // Process'in çıkışını ve hatalarını asenkron olarak okumak için görevler başlat
-                // Bu görevleri ayrı ayrı 'fire-and-forget' olarak başlatıyoruz,
-                // ancak CancellationToken ile kontrol edilebilecekler.
                 Task.Run(async () =>
                 {
                     using (var reader = _pythonProcess.StandardOutput)
@@ -7082,11 +7031,8 @@ namespace MissionPlanner.GCSViews
                     }
                 }, token);
 
-                // Python sürecinin kendi kendine bitmesini bekle
-                // Bu bekleme işlemini ayrı bir Task içinde yapıyoruz ki UI thread'i bloke olmasın.
                 await Task.Run(() => _pythonProcess.WaitForExit(), token);
 
-                // Process bittikten sonra buraya gelinir (normal veya iptal sonucu)
                 if (token.IsCancellationRequested)
                 {
                     txtSSHOutput.AppendText("\r\nPython scripti dışarıdan iptal edildi.\r\n");
@@ -7107,84 +7053,65 @@ namespace MissionPlanner.GCSViews
             }
             finally
             {
-                // Buton durumlarını sıfırla
                 btnRunAutoMissionScript.Enabled = true;
                 btnStopAutoMissionScript.Enabled = false;
-                CleanupPythonProcess(); // Süreci ve token'ı temizle
+                CleanupPythonProcess(); 
             }
         }
 
         private void btnStopAutoMissionScript_Click(object sender, EventArgs e)
         {
-            // Python süreci aktif ve henüz sonlanmamışsa
             if (_pythonProcess != null && !_pythonProcess.HasExited)
             {
-                txtSSHOutput.AppendText("\r\nPython scriptini durdurma talebi gönderiliyor...\r\n");
                 try
                 {
-                    // CancellationTokenSource ile başlatılan görevi iptal et
-                    // Bu, Python scriptinin çıktı okuma görevlerini de durduracaktır.
                     _cancellationTokenSource?.Cancel();
 
-                    // Python scriptine nazikçe kapanması için kısa bir süre ver (örneğin 500 milisaniye).
-                    // Python tarafında signal handler varsa, bu süre içinde kaynaklarını serbest bırakmaya başlayacaktır.
-                    if (!_pythonProcess.WaitForExit(500)) // 0.5 saniye bekle
+                    if (!_pythonProcess.WaitForExit(500))
                     {
-                        // Eğer script hala çalışıyorsa (yani nazik kapanma işe yaramadıysa), zorla sonlandır.
                         _pythonProcess.Kill();
-                        txtSSHOutput.AppendText("\r\nPython scripti nazikçe durdurulamadı, zorla sonlandırıldı.\r\n");
+                        txtSSHOutput.AppendText("\r\nPython scripti başarıyla durduruldu.\r\n");
                     }
                     else
                     {
                         txtSSHOutput.AppendText("\r\nPython scripti başarıyla durduruldu.\r\n");
                     }
                 }
-                catch (InvalidOperationException)
-                {
-                    // Bu istisna, Process nesnesi zaten sonlanmış bir süreç için Kill() çağrıldığında oluşabilir.
-                    txtSSHOutput.AppendText("\r\nPython scripti zaten sona ermişti veya başlatılmamıştı.\r\n");
-                }
+                
                 catch (Exception ex)
                 {
-                    // Diğer beklenmedik hataları yakala
                     MessageBox.Show($"Script durdurma hatası: {ex.Message}", "Durdurma Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     txtSSHOutput.AppendText($"\r\nScript durdurma hatası: {ex.Message}\r\n");
                 }
                 finally
                 {
-                    // Durdurma işlemi tamamlandığında buton durumlarını sıfırla ve süreci temizle
                     btnRunAutoMissionScript.Enabled = true;
                     btnStopAutoMissionScript.Enabled = false;
-                    CleanupPythonProcess(); // Süreci ve CancellationTokenSource'ı temizle
+                    CleanupPythonProcess();
                 }
             }
             else
             {
                 txtSSHOutput.AppendText("\r\nÇalışan bir Python scripti bulunamadı.\r\n");
-                // Script zaten çalışmıyorsa butonları doğru duruma getir
                 btnRunAutoMissionScript.Enabled = true;
                 btnStopAutoMissionScript.Enabled = false;
             }
         }
         private void CleanupPythonProcess()
         {
-            // CancellationTokenSource'ı iptal et ve dispose et
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = null; // Bellek sızıntılarını önlemek için null yap
+            _cancellationTokenSource = null;
 
             if (_pythonProcess != null)
             {
-                if (!_pythonProcess.HasExited) // Eğer süreç hala çalışıyorsa
+                if (!_pythonProcess.HasExited)
                 {
                     try
                     {
-                        // Python scriptinin nazikçe kapanması için kısa bir süre daha bekle
-                        if (!_pythonProcess.WaitForExit(1000)) // 1 saniye bekle
+                        if (!_pythonProcess.WaitForExit(1000)) 
                         {
-                            // Hala çalışıyorsa zorla sonlandır
                             _pythonProcess.Kill();
-                            txtSSHOutput.AppendText("\r\nKalan Python süreci zorla sonlandırıldı ve temizlendi.\r\n");
                         }
                     }
                     catch (Exception ex)
@@ -7192,8 +7119,49 @@ namespace MissionPlanner.GCSViews
                         txtSSHOutput.AppendText($"\r\nKalan Python sürecini temizleme hatası: {ex.Message}\r\n");
                     }
                 }
-                _pythonProcess.Dispose(); // Process nesnesini dispose et
-                _pythonProcess = null; // Bellek sızıntılarını önlemek için null yap
+                _pythonProcess.Dispose(); 
+                _pythonProcess = null;
+            }
+        }
+        public void CleanupVlcPlayer()
+        {
+            if (vlcPlayer != null)
+            {
+                if (vlcPlayer.IsPlaying)
+                {
+                    vlcPlayer.Stop();
+                }
+                vlcPlayer.Dispose();
+                vlcPlayer = null;
+                if (btnDisconnectRTSP.InvokeRequired)
+                {
+                    btnDisconnectRTSP.BeginInvoke((MethodInvoker)delegate {
+                        btnDisconnectRTSP.Enabled = false;
+                    });
+                }
+                else
+                {
+                    btnDisconnectRTSP.Enabled = false;
+                }
+            }
+        }
+
+        private void CleanupSshClient()
+        {
+            if (sshClient != null)
+            {
+                if (sshClient.IsConnected)
+                {
+                    try
+                    {
+                        sshClient.Disconnect();
+                    }
+                    catch (Exception ex)
+                    {
+                    }
+                }
+                sshClient.Dispose();
+                sshClient = null;
             }
         }
     }
