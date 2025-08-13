@@ -3,6 +3,7 @@ using Dowding.Model;
 using GMap.NET;
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
+using IronPython.Runtime.Operations;
 using log4net;
 using Microsoft.Scripting.Utils;
 using MissionPlanner.ArduPilot;
@@ -26,6 +27,7 @@ using System.IO;     // DirectoryInfo, Path için gerekli
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -33,6 +35,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks;
 using System.Windows.Forms; // MessageBox için gerekli
 using System.Windows.Forms;
+using System.Windows.Forms; // MessageBox için gerekli
 using Vlc.DotNet.Core;
 using Vlc.DotNet.Core.Interops;
 using Vlc.DotNet.Forms;
@@ -6806,6 +6809,9 @@ namespace MissionPlanner.GCSViews
             txtSSHAddress.Enabled = false;
             txtSSHPassword.Enabled = false;
             btnDisconnectSSH.Enabled = false;
+            btnStartScript.Enabled = false; // Başlangıçta script başlat butonunu devre dışı bırak
+            btnStopAutoMissionScript.Enabled = false; // Başlangıçta script durdur butonunu devre dışı bırak
+
             txtSSHOutput.Text = "SSH bağlantısı kuruluyor... Lütfen bekleyiniz.\r\n";
             Application.DoEvents();
 
@@ -6825,7 +6831,7 @@ namespace MissionPlanner.GCSViews
 
             string username = parts[0];
             string ipAddress = parts[1];
-            
+
             CleanupSshClient(); 
 
             await Task.Run(() =>
@@ -6833,58 +6839,63 @@ namespace MissionPlanner.GCSViews
                 try
                 {
                     sshClient = new SshClient(ipAddress, username, password);
+                    sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(10);
                     sshClient.Connect();
 
                     if (sshClient.IsConnected)
                     {
                         this.BeginInvoke((MethodInvoker)delegate {
                             txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
-                            txtSSHOutput.AppendText($"Cihazda '{username}' kullanıcısının ana dizinini ('cd /home/{username}/Downloads') listeleme komutu çalıştırılıyor...\r\n");
+                            btnStartScript.Enabled = true;
                             btnDisconnectSSH.Enabled = true;
-
                         });
-
-                        var command = sshClient.CreateCommand($"cd /home/{username}/Downloads");
-                        var result = command.Execute();
-
-                        this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText("--- Komut Çıktısı Başlangıcı ---\r\n" + result + "\r\n");
-                            if (!string.IsNullOrEmpty(command.Error))
+                        try
+                        {
+                            using (var command = sshClient.CreateCommand($"ls -l /home/{username}/Downloads/"))
                             {
-                                txtSSHOutput.AppendText("--- Hata Çıktısı (stderr) Başlangıcı ---\r\n" + command.Error + "\r\n");
+                                string result = command.Execute();
+                                string error = command.Error;
+
+                                this.BeginInvoke((MethodInvoker)delegate {
+                                    txtSSHOutput.AppendText($"\r\n--- Jetson'daki İndirilenler Dizini Listesi ---\r\n" + result + "\r\n");
+                                    if (!string.IsNullOrEmpty(error))
+                                    {
+                                        txtSSHOutput.AppendText("--- Hata Çıktısı (stderr) ---\r\n" + error + "\r\n");
+                                    }
+                                    txtSSHOutput.AppendText("--- Liste Sonu ---\r\n");
+                                });
                             }
-                            txtSSHOutput.AppendText("--- Komut Çıktısı Sonu ---\r\n");
-                        });
+                        }
+                        catch (Renci.SshNet.Common.SshException cmdEx)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate {
+                                txtSSHOutput.AppendText($"\r\nSSH başlangıç komutu hatası: {cmdEx.Message}\r\n");
+                            });
+                        }
                     }
                     else
                     {
                         this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText("SSH bağlantısı kurulamadı: İstemci bağlanamadı.");
+                            txtSSHOutput.AppendText("SSH bağlantısı kurulamadı: İstemci bağlanamadı.\r\n");
+                            btnConnectSSH.Enabled = true;
+                            txtSSHAddress.Enabled = true;
+                            txtSSHPassword.Enabled = true;
                         });
                     }
                 }
-                catch (Exception ex)
+               
+                catch (SocketException socketEx)
                 {
                     this.BeginInvoke((MethodInvoker)delegate {
-                        txtSSHOutput.AppendText($"\r\nSSH bağlantı hatası: {ex.Message}\r\n");
-                        if (ex is SshAuthenticationException)
-                        {
-                            txtSSHOutput.AppendText("Kimlik doğrulama başarısız. Kullanıcı adı veya şifre yanlış olabilir.\r\n");
-                        }
-                        else if (ex is System.Net.Sockets.SocketException socketEx)
-                        {
-                            txtSSHOutput.AppendText($"Ağ hatası: {socketEx.SocketErrorCode}. Jetson'a erişilemiyor veya IP adresi yanlış.\r\n");
-                        }
+                        txtSSHOutput.AppendText($"\r\nAğ Hatası: {socketEx.Message} (Kod: {socketEx.SocketErrorCode})\r\n" +
+                                               "Jetson'a ulaşılamıyor veya IP adresi yanlış olabilir. Güvenlik duvarını kontrol edin.\r\n");
+                        btnConnectSSH.Enabled = true;
+                        txtSSHAddress.Enabled = true;
+                        txtSSHPassword.Enabled = true;
                     });
-                    CleanupSshClient();
                 }
             });
-
-            btnConnectSSH.Enabled = true;
-            txtSSHAddress.Enabled = true;
-            txtSSHPassword.Enabled = true;
         }
-
         private void btnDisconnectSSH_Click(object sender, EventArgs e)
         {
             if (sshClient != null && sshClient.IsConnected)
@@ -6901,13 +6912,15 @@ namespace MissionPlanner.GCSViews
             txtSSHAddress.Enabled = true;
             txtSSHPassword.Enabled = true;
             btnDisconnectSSH.Enabled = false;
-            
+            btnStartScript.Enabled = false; // Bağlantı kesilince script başlat butonunu da devre dışı bırak
+            btnStopAutoMissionScript.Enabled = false; // Bağlantı kesilince script durdur butonunu da devre dışı bırak
         }
-
-        private async void btnStartScript_Click(object sender, EventArgs e)
+        
+        private uint _remotePythonScriptPid = 0;
+        private async void btnStartScript_Click(object sender, EventArgs e) 
         {
-
-            txtSSHOutput.AppendText("\r\nJetson'da script başlatılıyor (SSH oturumu ile bağlantılı)...\r\n");
+            btnStartScript.Enabled = false; // Başlat butonunu devre dışı bırak
+            txtSSHOutput.AppendText("\r\nJetson'da RTSP Python scripti başlatılıyor...\r\n");
             Application.DoEvents();
 
             if (sshClient == null || !sshClient.IsConnected)
@@ -6916,44 +6929,157 @@ namespace MissionPlanner.GCSViews
                 btnStartScript.Enabled = true;
                 return;
             }
+
             string scriptDirectoryOnJetson = "/home/ubuntu/Downloads/";
-            string scriptName = "rtsp_test_server.py";
-            string commandToExecute = $"cd {scriptDirectoryOnJetson} && python3 {scriptName}";
+            string scriptName = "rtsp_test_server.py"; // Jetson'da çalıştırılacak scriptin adı
+            string pythonExecutable = "python3"; // Jetson'daki Python yürütülebilir dosyasının adı
+
+            // Önceki çalışan Jetson Python scriptlerini temizle (pgrep ile)
+            await CleanupRemotePythonProcess(); // Bu metot aşağıdaki gibi olacak
+
+            _remotePythonScriptPid = 0; // Yeni bir PID yakalamak için sıfırla
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    using (var shellStream = sshClient.CreateShellStream("xterm", 80, 24, 800, 600, 1024))
+                    {
+                        shellStream.WriteLine($"cd {scriptDirectoryOnJetson}");
+                        await Task.Delay(200);
+                        string cdOutput = shellStream.Read();
+
+                        shellStream.WriteLine($"nohup {pythonExecutable} {scriptName} > /dev/null 2>&1 & echo $!");
+                        await Task.Delay(1000);
+
+                        string pidRawOutput = shellStream.Read();
+
+                        uint parsedPid = 0;
+                        string[] lines = pidRawOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (string line in lines)
+                        {
+                            if (uint.TryParse(line.Trim(), out parsedPid))
+                            {
+                                _remotePythonScriptPid = parsedPid;
+                                break;
+                            }
+                        }
+
+                        if (_remotePythonScriptPid != 0)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"\r\nJetson'da '{scriptName}' scripti PID {_remotePythonScriptPid} ile başarıyla başlatıldı.\r\n");
+                                btnStopScript.Enabled = true; // "btnStopScript" butonunu etkinleştir
+                            });
+                        }
+                        else
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"\r\nJetson'da script başlatıldı ancak PID alınamadı. Ham çıktı: \r\n---Başlangıç---\r\n{pidRawOutput}\r\n---Bitiş---\r\n");
+                                txtSSHOutput.AppendText("Lütfen scriptin Jetson'da doğru yolda olduğundan, çalıştırılabilir olduğundan ve 'echo $!' çıktısının tek başına bir sayı olduğundan emin olun.\r\n");
+                                btnStopScript.Enabled = false; // Başlatma başarısızsa durdurma butonunu devre dışı bırak
+                            });
+                        }
+                    }
+                }
+                catch (Renci.SshNet.Common.SshException sshEx)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        txtSSHOutput.AppendText($"\r\nJetson Script Başlatma SSH Hatası: {sshEx.Message}\r\n");
+                        if (sshEx.InnerException != null)
+                        {
+                            txtSSHOutput.AppendText($"Detay: {sshEx.InnerException.Message}\r\n");
+                        }
+                        btnStopScript.Enabled = false;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        txtSSHOutput.AppendText($"\r\nJetson Script Başlatma Beklenmedik Hata: {ex.Message}\r\n");
+                        btnStopScript.Enabled = false;
+                    });
+                }
+            });
+
+            btnStartScript.Enabled = true; // Başlatma işlemi tamamlandığında kendi butonunu tekrar etkinleştir
+        }
+        private async void btnStopScript_Click(object sender, EventArgs e) 
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil. Uzak scripti durdurmak için önce bağlanmalısınız.\r\n");
+                return;
+            }
+
+            if (_remotePythonScriptPid == 0)
+            {
+                txtSSHOutput.AppendText("\r\nJetson'da çalışan bir Python scripti PID'si bulunamadı (belki zaten durdu?).\r\n");
+                return;
+            }
+
+            txtSSHOutput.AppendText($"\r\nJetson'da uzak Python scripti (PID: {_remotePythonScriptPid}) durduruluyor...\r\n");
+            btnStopScript.Enabled = false; // Durdur butonunu geçici olarak devre dışı bırak
+            btnStartScript.Enabled = false; // Bu süreçte başlat butonunu da devre dışı bırak
 
             await Task.Run(() =>
             {
                 try
                 {
-                    using (var command = sshClient.CreateCommand(commandToExecute))
+                    // kill -9: scripti kesin olarak sonlandırır.
+                    using (var command = sshClient.CreateCommand($"kill -9 {_remotePythonScriptPid}"))
                     {
-                        string result = command.Execute();
-                        string error = command.Error;
+                        string result = command.Execute(); // Standart çıktı (genellikle boş)
+                        string error = command.Error;     // Standart hata çıktısı ("No such process" gibi)
 
-                        this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText($"\r\n'{scriptName}' scripti Jetson'da başlatıldı.\r\n");
-                            txtSSHOutput.AppendText("--- Script Çıktısı Başlangıcı ---\r\n");
-                            txtSSHOutput.AppendText(result + "\r\n"); // Scriptin standart çıktısını göster
-                            if (!string.IsNullOrEmpty(error))
+                        this.BeginInvoke((MethodInvoker)delegate
+                        {
+                            // Hata çıktısı boşsa veya "No such process" içeriyorsa başarılı kabul et
+                            if (string.IsNullOrEmpty(error) || error.Contains("No such process"))
                             {
-                                txtSSHOutput.AppendText("--- Script Hata Çıktısı (stderr) Başlangıcı ---\r\n" + error + "\r\n"); // Scriptin hata çıktısını göster
+                                txtSSHOutput.AppendText($"\r\nJetson'da uzak Python scripti (PID: {_remotePythonScriptPid}) başarıyla sonlandırıldı.\r\n");
+                                _remotePythonScriptPid = 0; // PID'yi sıfırla, artık script çalışmıyor
                             }
-                            txtSSHOutput.AppendText("--- Script Çıktısı Sonu ---\r\n");
-                            txtSSHOutput.AppendText("RTSP yayını başlatıldıysa, şimdi bağlanabilirsiniz.\r\n");
+                            else
+                            {
+                                txtSSHOutput.AppendText($"\r\nJetson'da uzak scripti durdururken hata oluştu: {error}\r\n");
+                            }
+                            txtSSHOutput.AppendText($"Kill Komutu Çıktısı (stdout): '{result}'\r\n"); // Debug çıktısı
+                            txtSSHOutput.AppendText($"Kill Komutu Hata Çıktısı (stderr): '{error}'\r\n"); // Debug çıktısı
                         });
                     }
                 }
+                catch (Renci.SshNet.Common.SshException sshEx)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        txtSSHOutput.AppendText($"\r\nJetson Script Durdurma SSH Hatası: {sshEx.Message}\r\n");
+                        if (sshEx.InnerException != null)
+                        {
+                            txtSSHOutput.AppendText($"Detay: {sshEx.InnerException.Message}\r\n");
+                        }
+                    });
+                }
                 catch (Exception ex)
                 {
-                    this.BeginInvoke((MethodInvoker)delegate {
-                        txtSSHOutput.AppendText($"\r\nScript çalıştırılırken SSH hatası: {ex.Message}\r\n");
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        txtSSHOutput.AppendText($"\r\nJetson Script Durdurma Beklenmedik Hata: {ex.Message}\r\n");
                     });
                 }
             });
 
-            btnStartScript.Enabled = true; // Butonu tekrar etkinleştir
+            // Durdurma işlemi tamamlandığında buton durumunu ayarla
+            btnStartScript.Enabled = true; // Başlat butonunu tekrar etkinleştir
+            btnStopScript.Enabled = false; // Kendini devre dışı bırak
         }
 
-        
+
 
         private async void btnRunAutoMissionScript_Click(object sender, EventArgs e)
         {
@@ -7058,7 +7184,6 @@ namespace MissionPlanner.GCSViews
                 CleanupPythonProcess(); 
             }
         }
-
         private void btnStopAutoMissionScript_Click(object sender, EventArgs e)
         {
             if (_pythonProcess != null && !_pythonProcess.HasExited)
@@ -7096,6 +7221,71 @@ namespace MissionPlanner.GCSViews
                 btnRunAutoMissionScript.Enabled = true;
                 btnStopAutoMissionScript.Enabled = false;
             }
+        }
+
+       
+        private async Task CleanupRemotePythonProcess()
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+                return;
+
+            string scriptName = "rtsp_test_server.py"; // Kontrol edilecek script adı
+            string pythonExecutable = "python3"; // Python yürütülebilir adını da arama paternine eklemek daha spesifik olur
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    // pgrep ile scriptin PID'sini bulmaya çalışın (tam argüman listesini ara)
+                    using (var command = sshClient.CreateCommand($"pgrep -f \"{pythonExecutable} {scriptName}\""))
+                    {
+                        string pids = command.Execute().Trim();
+                        string error = command.Error;
+
+                        if (!string.IsNullOrEmpty(pids))
+                        {
+                            foreach (var pidStr in pids.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                if (uint.TryParse(pidStr.Trim(), out uint pidToKill))
+                                {
+                                    txtSSHOutput.AppendText($"Temizleme: PID {pidToKill} durduruluyor...\r\n");
+                                    using (var killCommand = sshClient.CreateCommand($"kill -9 {pidToKill}"))
+                                    {
+                                        string killResult = killCommand.Execute();
+                                        string killError = killCommand.Error;
+                                        txtSSHOutput.AppendText($"Kill sonucu (PID {pidToKill}): stdout='{killResult}', stderr='{killError}'\r\n");
+                                    }
+                                }
+                            }
+                            txtSSHOutput.AppendText($"Temizleme: Önceki '{scriptName}' scriptleri sonlandırıldı.\r\n");
+                        }
+                        else if (!string.IsNullOrEmpty(error))
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate {
+                                txtSSHOutput.AppendText($"\r\nTemizleme sırasında hata (pgrep stderr): {error}\r\n");
+                            });
+                        }
+                        else
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate {
+                                txtSSHOutput.AppendText($"\r\nTemizleme: Önceki '{scriptName}' scripti bulunamadı. Temizleme tamamlandı.\r\n");
+                            });
+                        }
+                    }
+                }
+                catch (Renci.SshNet.Common.SshException sshEx)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nTemizleme sırasında SSH hatası: {sshEx.Message}\r\n");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nTemizleme sırasında beklenmedik hata: {ex.Message}\r\n");
+                    });
+                }
+            });
         }
         private void CleanupPythonProcess()
         {
@@ -7145,7 +7335,6 @@ namespace MissionPlanner.GCSViews
                 }
             }
         }
-
         private void CleanupSshClient()
         {
             if (sshClient != null)
@@ -7164,5 +7353,7 @@ namespace MissionPlanner.GCSViews
                 sshClient = null;
             }
         }
+
+        
     }
 }
