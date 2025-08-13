@@ -6840,7 +6840,7 @@ namespace MissionPlanner.GCSViews
                 {
                     sshClient = new SshClient(ipAddress, username, password);
                     sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(10);
-                    sshClient.Connect();
+                    sshClient.Connect(); 
 
                     if (sshClient.IsConnected)
                     {
@@ -7103,7 +7103,7 @@ namespace MissionPlanner.GCSViews
 
             var psi = new ProcessStartInfo();
             psi.FileName = "python"; // veya "python3"
-            psi.Arguments = $"\"{scriptPath}\"";
+            psi.Arguments = $"-u \"{scriptPath}\""; // -u parametresiyle unbuffered output sağlanır
             psi.RedirectStandardOutput = true;
             psi.RedirectStandardError = true;
             psi.UseShellExecute = false;
@@ -7119,43 +7119,93 @@ namespace MissionPlanner.GCSViews
                     {
                         MessageBox.Show("Python scripti başlatılamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     });
-                    return; 
+                    return;
                 }
+
+                // Output stream reader task
                 Task.Run(async () =>
                 {
-                    using (var reader = _pythonProcess.StandardOutput)
+                    char[] buffer = new char[1024]; // Small buffer for frequent updates
+                    int bytesRead;
+                    while (!token.IsCancellationRequested)
                     {
-                        while (!reader.EndOfStream && !token.IsCancellationRequested)
+                        try
                         {
-                            string line = await reader.ReadLineAsync();
-                            if (line != null)
+                            bytesRead = await _pythonProcess.StandardOutput.ReadAsync(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
                             {
+                                string output = new string(buffer, 0, bytesRead);
                                 this.BeginInvoke((MethodInvoker)delegate
                                 {
-                                    txtSSHOutput.AppendText($"[PY_OUT] {line}\r\n");
+                                    txtSSHOutput.AppendText($"[PY_OUT] {output}"); // Append without adding extra newlines
                                 });
                             }
+                            else if (_pythonProcess.HasExited)
+                            {
+                                break; // Exit if the process has exited and no more data
+                            }
+                            else
+                            {
+                                await Task.Delay(50); // Small delay to prevent busy-waiting
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"[PY_OUT_ERR_STREAM] {ex.Message}\r\n");
+                            });
+                            break;
                         }
                     }
                 }, token);
 
+                // Error stream reader task (similar modification)
                 Task.Run(async () =>
                 {
-                    using (var reader = _pythonProcess.StandardError)
+                    char[] buffer = new char[1024];
+                    int bytesRead;
+                    while (!token.IsCancellationRequested)
                     {
-                        while (!reader.EndOfStream && !token.IsCancellationRequested)
+                        try
                         {
-                            string line = await reader.ReadLineAsync();
-                            if (line != null)
+                            bytesRead = await _pythonProcess.StandardError.ReadAsync(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
                             {
+                                string output = new string(buffer, 0, bytesRead);
                                 this.BeginInvoke((MethodInvoker)delegate
                                 {
-                                    txtSSHOutput.AppendText($"[PY_ERR] {line}\r\n");
+                                    txtSSHOutput.AppendText($"[PY_ERR] {output}"); // Append without adding extra newlines
                                 });
                             }
+                            else if (_pythonProcess.HasExited)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                await Task.Delay(50);
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"[PY_ERR_STREAM_ERR] {ex.Message}\r\n");
+                            });
+                            break;
                         }
                     }
                 }, token);
+
 
                 await Task.Run(() => _pythonProcess.WaitForExit(), token);
 
@@ -7181,7 +7231,7 @@ namespace MissionPlanner.GCSViews
             {
                 btnRunAutoMissionScript.Enabled = true;
                 btnStopAutoMissionScript.Enabled = false;
-                CleanupPythonProcess(); 
+                CleanupPythonProcess();
             }
         }
         private void btnStopAutoMissionScript_Click(object sender, EventArgs e)
