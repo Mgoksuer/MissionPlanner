@@ -17,14 +17,12 @@ using MissionPlanner.Warnings;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using System;      // Uri, Exception için gerekli
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;     // DirectoryInfo, Path için gerekli
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -32,9 +30,6 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks;
-using System.Windows.Forms; // MessageBox için gerekli
-using System.Windows.Forms;
 using System.Windows.Forms; // MessageBox için gerekli
 using Vlc.DotNet.Core;
 using Vlc.DotNet.Core.Interops;
@@ -6939,7 +6934,7 @@ namespace MissionPlanner.GCSViews
             CleanupScriptStream();
 
             string scriptDirectory = "/home/ubuntu/Downloads/";
-            string scriptName = "rtsp_test_server.py";
+            string scriptName = "gorev_sunucusu.py";
             string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
 
             try
@@ -7374,6 +7369,64 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        
+        private void SendCommandToJetson(string command)
+        {
+            string sshAddress = txtSSHAddress.Text.Trim();
+            if (!sshAddress.Contains("@"))
+            {
+                txtSSHOutput.AppendText("\r\nHATA: SSH Adresi 'kullanici@ipadresi' formatinda olmali.\r\n");
+                return;
+            }
+            string ipAddress = sshAddress.Split('@')[1];
+            int port = 65432;
+
+            try
+            {
+                using (TcpClient client = new TcpClient())
+                {
+                    // Bağlantı için 2 saniyelik bir zaman aşımı ekleyelim
+                    var result = client.BeginConnect(ipAddress, port, null, null);
+                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+
+                    if (!success)
+                    {
+                        throw new Exception("Sunucuya baglanilamadi (zaman asimi).");
+                    }
+
+                    client.EndConnect(result);
+
+                    byte[] data = Encoding.UTF8.GetBytes(command);
+                    using (NetworkStream stream = client.GetStream())
+                    {
+                        stream.Write(data, 0, data.Length);
+                        txtSSHOutput.AppendText($"\r\n>>> Komut '{command}' sunucuya gonderildi.\r\n");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nHATA: Komut gonderme basarisiz: {ex.Message}\r\n");
+            }
+        }
+
+        private void KilitlenmeDurdur_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("STOP_LOCK");
+        }
+
+        private void KamikazeBitir_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("STOP_KAMIKAZE");
+        }
+
+        private void KilitlenmeBaslat_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_LOCK");
+        }
+
+        private void KamikazeBaslat_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE");
+        }
     }
 }

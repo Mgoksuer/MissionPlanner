@@ -195,6 +195,7 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.btnStopScript = new MissionPlanner.Controls.MyButton();
             this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.myButton5 = new MissionPlanner.Controls.MyButton();
             this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
@@ -262,7 +263,10 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.btnStopScript = new MissionPlanner.Controls.MyButton();
+            this.KilitlenmeBaslat = new MissionPlanner.Controls.MyButton();
+            this.KilitlenmeDurdur = new MissionPlanner.Controls.MyButton();
+            this.KamikazeBaslat = new MissionPlanner.Controls.MyButton();
+            this.KamikazeBitir = new MissionPlanner.Controls.MyButton();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -2455,6 +2459,10 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
+            this.pnlRTSPInput.Controls.Add(this.KamikazeBitir);
+            this.pnlRTSPInput.Controls.Add(this.KamikazeBaslat);
+            this.pnlRTSPInput.Controls.Add(this.KilitlenmeDurdur);
+            this.pnlRTSPInput.Controls.Add(this.KilitlenmeBaslat);
             this.pnlRTSPInput.Controls.Add(this.btnStopScript);
             this.pnlRTSPInput.Controls.Add(this.btnStopAutoMissionScript);
             this.pnlRTSPInput.Controls.Add(this.myButton5);
@@ -2474,6 +2482,14 @@ namespace MissionPlanner.GCSViews
             resources.ApplyResources(this.pnlRTSPInput, "pnlRTSPInput");
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
+            // 
+            // btnStopScript
+            // 
+            resources.ApplyResources(this.btnStopScript, "btnStopScript");
+            this.btnStopScript.Name = "btnStopScript";
+            this.btnStopScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStopScript.UseVisualStyleBackColor = true;
+            this.btnStopScript.Click += new System.EventHandler(this.btnStopScript_Click);
             // 
             // btnStopAutoMissionScript
             // 
@@ -2866,7 +2882,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 180D;
+            this.windDir1.Direction = 360D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -3018,13 +3034,37 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
-            // btnStopScript
+            // KilitlenmeBaslat
             // 
-            resources.ApplyResources(this.btnStopScript, "btnStopScript");
-            this.btnStopScript.Name = "btnStopScript";
-            this.btnStopScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStopScript.UseVisualStyleBackColor = true;
-            this.btnStopScript.Click += new System.EventHandler(this.btnStopScript_Click);
+            resources.ApplyResources(this.KilitlenmeBaslat, "KilitlenmeBaslat");
+            this.KilitlenmeBaslat.Name = "KilitlenmeBaslat";
+            this.KilitlenmeBaslat.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.KilitlenmeBaslat.UseVisualStyleBackColor = true;
+            this.KilitlenmeBaslat.Click += new System.EventHandler(this.KilitlenmeBaslat_Click);
+            // 
+            // KilitlenmeDurdur
+            // 
+            resources.ApplyResources(this.KilitlenmeDurdur, "KilitlenmeDurdur");
+            this.KilitlenmeDurdur.Name = "KilitlenmeDurdur";
+            this.KilitlenmeDurdur.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.KilitlenmeDurdur.UseVisualStyleBackColor = true;
+            this.KilitlenmeDurdur.Click += new System.EventHandler(this.KilitlenmeDurdur_Click);
+            // 
+            // KamikazeBaslat
+            // 
+            resources.ApplyResources(this.KamikazeBaslat, "KamikazeBaslat");
+            this.KamikazeBaslat.Name = "KamikazeBaslat";
+            this.KamikazeBaslat.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.KamikazeBaslat.UseVisualStyleBackColor = true;
+            this.KamikazeBaslat.Click += new System.EventHandler(this.KamikazeBaslat_Click);
+            // 
+            // KamikazeBitir
+            // 
+            resources.ApplyResources(this.KamikazeBitir, "KamikazeBitir");
+            this.KamikazeBitir.Name = "KamikazeBitir";
+            this.KamikazeBitir.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.KamikazeBitir.UseVisualStyleBackColor = true;
+            this.KamikazeBitir.Click += new System.EventHandler(this.KamikazeBitir_Click);
             // 
             // FlightData
             // 
@@ -3374,5 +3414,9 @@ namespace MissionPlanner.GCSViews
         private Controls.MyButton myButton5;
         private Controls.MyButton btnStopAutoMissionScript;
         private Controls.MyButton btnStopScript;
+        private Controls.MyButton KilitlenmeBaslat;
+        private Controls.MyButton KamikazeBitir;
+        private Controls.MyButton KamikazeBaslat;
+        private Controls.MyButton KilitlenmeDurdur;
     }
 }
