@@ -6933,7 +6933,7 @@ namespace MissionPlanner.GCSViews
             await CleanupRemotePythonProcess();
             CleanupScriptStream();
 
-            string scriptDirectory = "/home/ubuntu/Downloads/";
+            string scriptDirectory = "/home/emir/Downloads/";
             string scriptName = "gorev_sunucusu.py";
             string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
 
@@ -6951,6 +6951,7 @@ namespace MissionPlanner.GCSViews
 
                 btnStopScript.Enabled = true;
                 txtSSHOutput.AppendText("\r\nScript çalıştırıldı. Çıktılar bekleniyor...\r\n");
+
             }
             catch (Exception ex)
             {
@@ -7418,15 +7419,15 @@ namespace MissionPlanner.GCSViews
         {
             SendCommandToJetson("STOP_KAMIKAZE");
         }
-
-        private void KilitlenmeBaslat_Click(object sender, EventArgs e)
-        {
-            SendCommandToJetson("START_LOCK");
-        }
-
-        private void KamikazeBaslat_Click(object sender, EventArgs e)
+       
+        private void btnStartKamikaze_Click(object sender, EventArgs e)
         {
             SendCommandToJetson("START_KAMIKAZE");
+        }
+
+        private void btnStartKitlenme_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_LOCK");
         }
     }
 }
