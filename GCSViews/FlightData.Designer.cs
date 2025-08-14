@@ -195,13 +195,15 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.label10 = new System.Windows.Forms.Label();
+            this.panel3 = new System.Windows.Forms.Panel();
+            this.btnStartScript = new MissionPlanner.Controls.MyButton();
+            this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnStartKitlenme = new MissionPlanner.Controls.MyButton();
+            this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnStartKamikaze = new MissionPlanner.Controls.MyButton();
             this.btnStopScript = new MissionPlanner.Controls.MyButton();
-            this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
-            this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnDisconnectRTSP = new MissionPlanner.Controls.MyButton();
-            this.btnStartScript = new MissionPlanner.Controls.MyButton();
             this.btnDisconnectSSH = new MissionPlanner.Controls.MyButton();
             this.txtSSHOutput = new System.Windows.Forms.TextBox();
             this.txtSSHPassword = new System.Windows.Forms.TextBox();
@@ -264,8 +266,6 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.panel3 = new System.Windows.Forms.Panel();
-            this.label10 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -321,6 +321,7 @@ namespace MissionPlanner.GCSViews
             this.tabControl1.SuspendLayout();
             this.tabConnect.SuspendLayout();
             this.pnlRTSPInput.SuspendLayout();
+            this.panel3.SuspendLayout();
             this.tableMap.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -332,7 +333,6 @@ namespace MissionPlanner.GCSViews
             ((System.ComponentModel.ISupportInitialize)(this.bindingSource1)).BeginInit();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.bindingSourceStatusTab)).BeginInit();
-            this.panel3.SuspendLayout();
             this.SuspendLayout();
             // 
             // MainH
@@ -988,6 +988,7 @@ namespace MissionPlanner.GCSViews
             this.BUT_ARM.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
             this.toolTip1.SetToolTip(this.BUT_ARM, resources.GetString("BUT_ARM.ToolTip"));
             this.BUT_ARM.UseVisualStyleBackColor = true;
+            this.BUT_ARM.Click += new System.EventHandler(this.BUT_ARM_Click_1);
             // 
             // BUT_mountmode
             // 
@@ -2476,6 +2477,39 @@ namespace MissionPlanner.GCSViews
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
             // 
+            // label10
+            // 
+            resources.ApplyResources(this.label10, "label10");
+            this.label10.Name = "label10";
+            // 
+            // panel3
+            // 
+            this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel3.Controls.Add(this.btnStartScript);
+            this.panel3.Controls.Add(this.btnStopAutoMissionScript);
+            this.panel3.Controls.Add(this.btnStartKitlenme);
+            this.panel3.Controls.Add(this.btnRunAutoMissionScript);
+            this.panel3.Controls.Add(this.btnStartKamikaze);
+            this.panel3.Controls.Add(this.btnStopScript);
+            resources.ApplyResources(this.panel3, "panel3");
+            this.panel3.Name = "panel3";
+            // 
+            // btnStartScript
+            // 
+            resources.ApplyResources(this.btnStartScript, "btnStartScript");
+            this.btnStartScript.Name = "btnStartScript";
+            this.btnStartScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartScript.UseVisualStyleBackColor = true;
+            this.btnStartScript.Click += new System.EventHandler(this.btnStartScript_Click);
+            // 
+            // btnStopAutoMissionScript
+            // 
+            resources.ApplyResources(this.btnStopAutoMissionScript, "btnStopAutoMissionScript");
+            this.btnStopAutoMissionScript.Name = "btnStopAutoMissionScript";
+            this.btnStopAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStopAutoMissionScript.UseVisualStyleBackColor = true;
+            this.btnStopAutoMissionScript.Click += new System.EventHandler(this.btnStopAutoMissionScript_Click);
+            // 
             // btnStartKitlenme
             // 
             resources.ApplyResources(this.btnStartKitlenme, "btnStartKitlenme");
@@ -2483,6 +2517,14 @@ namespace MissionPlanner.GCSViews
             this.btnStartKitlenme.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
             this.btnStartKitlenme.UseVisualStyleBackColor = true;
             this.btnStartKitlenme.Click += new System.EventHandler(this.btnStartKitlenme_Click);
+            // 
+            // btnRunAutoMissionScript
+            // 
+            resources.ApplyResources(this.btnRunAutoMissionScript, "btnRunAutoMissionScript");
+            this.btnRunAutoMissionScript.Name = "btnRunAutoMissionScript";
+            this.btnRunAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnRunAutoMissionScript.UseVisualStyleBackColor = true;
+            this.btnRunAutoMissionScript.Click += new System.EventHandler(this.btnRunAutoMissionScript_Click);
             // 
             // btnStartKamikaze
             // 
@@ -2500,22 +2542,6 @@ namespace MissionPlanner.GCSViews
             this.btnStopScript.UseVisualStyleBackColor = true;
             this.btnStopScript.Click += new System.EventHandler(this.btnStopScript_Click);
             // 
-            // btnStopAutoMissionScript
-            // 
-            resources.ApplyResources(this.btnStopAutoMissionScript, "btnStopAutoMissionScript");
-            this.btnStopAutoMissionScript.Name = "btnStopAutoMissionScript";
-            this.btnStopAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStopAutoMissionScript.UseVisualStyleBackColor = true;
-            this.btnStopAutoMissionScript.Click += new System.EventHandler(this.btnStopAutoMissionScript_Click);
-            // 
-            // btnRunAutoMissionScript
-            // 
-            resources.ApplyResources(this.btnRunAutoMissionScript, "btnRunAutoMissionScript");
-            this.btnRunAutoMissionScript.Name = "btnRunAutoMissionScript";
-            this.btnRunAutoMissionScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnRunAutoMissionScript.UseVisualStyleBackColor = true;
-            this.btnRunAutoMissionScript.Click += new System.EventHandler(this.btnRunAutoMissionScript_Click);
-            // 
             // btnDisconnectRTSP
             // 
             resources.ApplyResources(this.btnDisconnectRTSP, "btnDisconnectRTSP");
@@ -2523,14 +2549,6 @@ namespace MissionPlanner.GCSViews
             this.btnDisconnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
             this.btnDisconnectRTSP.UseVisualStyleBackColor = true;
             this.btnDisconnectRTSP.Click += new System.EventHandler(this.btnDisconnectRTSP_Click);
-            // 
-            // btnStartScript
-            // 
-            resources.ApplyResources(this.btnStartScript, "btnStartScript");
-            this.btnStartScript.Name = "btnStartScript";
-            this.btnStartScript.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStartScript.UseVisualStyleBackColor = true;
-            this.btnStartScript.Click += new System.EventHandler(this.btnStartScript_Click);
             // 
             // btnDisconnectSSH
             // 
@@ -3036,23 +3054,6 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
-            // panel3
-            // 
-            this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.panel3.Controls.Add(this.btnStartScript);
-            this.panel3.Controls.Add(this.btnStopAutoMissionScript);
-            this.panel3.Controls.Add(this.btnStartKitlenme);
-            this.panel3.Controls.Add(this.btnRunAutoMissionScript);
-            this.panel3.Controls.Add(this.btnStartKamikaze);
-            this.panel3.Controls.Add(this.btnStopScript);
-            resources.ApplyResources(this.panel3, "panel3");
-            this.panel3.Name = "panel3";
-            // 
-            // label10
-            // 
-            resources.ApplyResources(this.label10, "label10");
-            this.label10.Name = "label10";
-            // 
             // FlightData
             // 
             this.Controls.Add(this.MainH);
@@ -3128,6 +3129,7 @@ namespace MissionPlanner.GCSViews
             this.tabConnect.ResumeLayout(false);
             this.pnlRTSPInput.ResumeLayout(false);
             this.pnlRTSPInput.PerformLayout();
+            this.panel3.ResumeLayout(false);
             this.tableMap.ResumeLayout(false);
             this.tableMap.PerformLayout();
             this.splitContainer1.Panel1.ResumeLayout(false);
@@ -3142,7 +3144,6 @@ namespace MissionPlanner.GCSViews
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.bindingSourceStatusTab)).EndInit();
-            this.panel3.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

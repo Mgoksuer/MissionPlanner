@@ -483,8 +483,8 @@ namespace MissionPlanner.GCSViews
             // Bu listeyi daha sonra SetMedia metoduna parametre olarak geçireceğiz.
             List<string> mediaOptions = new List<string>
              {
-                ":network-caching=300", // Ağ akışları için önbellekleme (ms)
-                ":live-caching=300",    // Canlı yayınlar için önbellekleme (ms)
+                ":network-caching=500", // Ağ akışları için önbellekleme (ms)
+                ":live-caching=500",    // Canlı yayınlar için önbellekleme (ms)
                 // İstediğiniz diğer VLC seçeneklerini buraya ekleyebilirsiniz.
                 // Örneğin: ":rtsp-tcp", ":no-snapshot-video", ":vout=direct3d9"
         };
@@ -6761,8 +6761,8 @@ namespace MissionPlanner.GCSViews
 
                     string[] mediaOptions = new string[]
                     {
-                ":network-caching=300", 
-                ":live-caching=300",   
+                    ":network-caching=5000", 
+                    ":live-caching=5000",   
                     };
 
                     vlcPlayer.SetMedia(new Uri(rtspAddress), mediaOptions);
@@ -6933,8 +6933,8 @@ namespace MissionPlanner.GCSViews
             await CleanupRemotePythonProcess();
             CleanupScriptStream();
 
-            string scriptDirectory = "/home/emir/Downloads/";
-            string scriptName = "gorev_sunucusu.py";
+            string scriptDirectory = "/home/siha/Downloads/";
+            string scriptName = "rtsp_manisa_intikal.py";
             string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
 
             try
@@ -7410,15 +7410,6 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void KilitlenmeDurdur_Click(object sender, EventArgs e)
-        {
-            SendCommandToJetson("STOP_LOCK");
-        }
-
-        private void KamikazeBitir_Click(object sender, EventArgs e)
-        {
-            SendCommandToJetson("STOP_KAMIKAZE");
-        }
        
         private void btnStartKamikaze_Click(object sender, EventArgs e)
         {
@@ -7429,5 +7420,54 @@ namespace MissionPlanner.GCSViews
         {
             SendCommandToJetson("START_LOCK");
         }
+
+        private void BUT_ARM_Click_1(object sender, EventArgs e)
+        {
+            if (!MainV2.comPort.BaseStream.IsOpen)
+                return;
+
+            // arm the MAV
+            try
+            {
+                var isitarmed = MainV2.comPort.MAV.cs.armed;
+                var action = MainV2.comPort.MAV.cs.armed ? "Disarm" : "Arm";
+
+                if (isitarmed)
+                    if (CustomMessageBox.Show("Are you sure you want to " + action, action,
+                            CustomMessageBox.MessageBoxButtons.YesNo) !=
+                        CustomMessageBox.DialogResult.Yes)
+                        return;
+                StringBuilder sb = new StringBuilder();
+                var sub = MainV2.comPort.SubscribeToPacketType(MAVLink.MAVLINK_MSG_ID.STATUSTEXT, message =>
+                {
+                    sb.AppendLine(Encoding.ASCII.GetString(((MAVLink.mavlink_statustext_t)message.data).text)
+                        .TrimEnd('\0'));
+                    return true;
+                }, (byte)MainV2.comPort.sysidcurrent, (byte)MainV2.comPort.compidcurrent);
+                bool ans = MainV2.comPort.doARM(!isitarmed);
+                MainV2.comPort.UnSubscribeToPacketType(sub);
+                if (ans == false)
+                {
+                    if (CustomMessageBox.Show(
+                            action + " failed.\n" + sb.ToString() + "\nForce " + action +
+                            " can bypass safety checks,\nwhich can lead to the vehicle crashing\nand causing serious injuries.\n\nDo you wish to Force " +
+                            action + "?", Strings.ERROR, CustomMessageBox.MessageBoxButtons.YesNo,
+                            CustomMessageBox.MessageBoxIcon.Exclamation, "Force " + action, "Cancel") ==
+                        CustomMessageBox.DialogResult.Yes)
+                    {
+                        ans = MainV2.comPort.doARM(!isitarmed, true);
+                        if (ans == false)
+                        {
+                            CustomMessageBox.Show(Strings.ErrorRejectedByMAV, Strings.ERROR);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                CustomMessageBox.Show(Strings.ErrorNoResponse, Strings.ERROR);
+            }
+        }
+
     }
 }
