@@ -7302,7 +7302,7 @@ namespace MissionPlanner.GCSViews
             // CameraProtocol.cs'ten alınan standart ve çalışan RTSP pipeline'ı
             // rtspsrc location={uri} latency=41 ... ! appsink name=outsink sync=false
             // Sadece rtsp:// ekliyoruz ve uri'yi adresten alıyoruz.
-            string pipeline = $"rtspsrc location={rtsp_url} latency=100 ! rtph264depay ! h264parse ! decodebin ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false";
+            string pipeline = $"rtspsrc location={rtsp_url} latency=41 udp-reconnect=1 timeout=0 do-retransmission=false ! application/x-rtp ! decodebin3 ! queue max-size-buffers=1 leaky=2 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false";
 
             txtSSHOutput.AppendText($"\r\nPipeline ile GStreamer başlatılıyor: {rtsp_url}\r\n");
 
