@@ -6966,8 +6966,8 @@ namespace MissionPlanner.GCSViews
             await CleanupRemotePythonProcess();
             CleanupScriptStream();
 
-            string scriptDirectory = "/home/ubuntu/Downloads/";
-            string scriptName = "gorev_sunucusu.py";
+            string scriptDirectory = "/home/siha/Downloads/";
+            string scriptName = "'MJPGmultithread_rtsp_pipeline (copy).py'";
             string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
 
             try
@@ -7317,7 +7317,7 @@ namespace MissionPlanner.GCSViews
             Array.Copy(uri_bytes, streaminfo.uri, uri_bytes.Length);
 
             // CameraProtocol sınıfı ile standart pipeline'ı oluştur
-            string pipeline = MissionPlanner.ArduPilot.Mavlink.CameraProtocol.GStreamerPipeline(streaminfo);
+            string pipeline = $"rtspsrc location={rtsp_url} latency=41 udp-reconnect=1 timeout=0 do-retransmission=false ! application/x-rtp ! decodebin3 ! queue max-size-buffers=1 leaky=2 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false";
 
             if (string.IsNullOrEmpty(pipeline))
             {
