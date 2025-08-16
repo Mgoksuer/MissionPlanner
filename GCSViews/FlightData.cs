@@ -55,7 +55,7 @@ namespace MissionPlanner.GCSViews
 {
     public partial class FlightData : MyUserControl, IActivate, IDeactivate
     {
-        private GStreamer cameraGStreamer;
+        
         public static FlightData instance;
         public static GMapOverlay kmlpolygons;
         public static HUD myhud;
@@ -7288,10 +7288,17 @@ namespace MissionPlanner.GCSViews
 
 
 
+        private readonly object streamLock = new object();
+        private volatile bool isGStreamerRunning = false;
+        private GStreamer cameraGStreamer;
+
+        private void pnlCameraDisplay_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
         private void btnConnectRTSP_Click(object sender, EventArgs e)
         {
-            // TextBox'tan RTSP adresini al
-            string rtsp_url = txtRTSPAddress.Text.Trim(); // TextBox'ınızın adını doğru yazdığınızdan emin olun
+            string rtsp_url = txtRTSPAddress.Text.Trim();
 
             if (string.IsNullOrEmpty(rtsp_url))
             {
@@ -7299,85 +7306,113 @@ namespace MissionPlanner.GCSViews
                 return;
             }
 
-            // CameraProtocol.cs'ten alınan standart ve çalışan RTSP pipeline'ı
-            // rtspsrc location={uri} latency=41 ... ! appsink name=outsink sync=false
-            // Sadece rtsp:// ekliyoruz ve uri'yi adresten alıyoruz.
-            string pipeline = $"rtspsrc location={rtsp_url} latency=41 udp-reconnect=1 timeout=0 do-retransmission=false ! application/x-rtp ! decodebin3 ! queue max-size-buffers=1 leaky=2 ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false";
+            // MAVLink mesaj yapısını oluştur
+            var streaminfo = new MAVLink.mavlink_video_stream_information_t() { type = (byte)MAVLink.VIDEO_STREAM_TYPE.RTSP };
 
-            txtSSHOutput.AppendText($"\r\nPipeline ile GStreamer başlatılıyor: {rtsp_url}\r\n");
+            // YENİ DÜZELTME: Hedef 'uri' dizisini bellekte oluştur.
+            // Bu satır olmadan 'streaminfo.uri' null olur ve Array.Copy hata verir.
+            streaminfo.uri = new byte[230];
 
-            // GStreamer'ı başlat
-            cameraGStreamer.Start(pipeline);
-        }
+            // URL'yi byte dizisine çevir ve oluşturulan alana kopyala
+            var uri_bytes = System.Text.Encoding.UTF8.GetBytes(rtsp_url);
+            Array.Copy(uri_bytes, streaminfo.uri, uri_bytes.Length);
 
-        private void btnDisconnectRTSP_Click(object sender, EventArgs e)
-        {
-            // GStreamer'ı durdur
-            cameraGStreamer.Stop();
+            // CameraProtocol sınıfı ile standart pipeline'ı oluştur
+            string pipeline = MissionPlanner.ArduPilot.Mavlink.CameraProtocol.GStreamerPipeline(streaminfo);
 
-            // PictureBox'ı temizle
-            pb_gimbalVideo.Image?.Dispose();
-            pb_gimbalVideo.Image = null;
-
-            txtSSHOutput.AppendText("\r\nRTSP yayını durduruldu.\r\n");
-        }
-
-        
-
-        private void pnlCameraDisplay_Paint(object sender, PaintEventArgs e)
-        {
-
-        }
-        private void CameraGStreamer_OnNewImage(object sender, MPBitmap image)
-        {
-            // Form veya PictureBox kapanmışsa işlem yapma
-            if (this.IsDisposed || !this.IsHandleCreated)
-                return;
-
-            // GStreamer'dan geçersiz (null veya boyutsuz) bir kare gelirse
-            if (image == null || image.Width <= 0 || image.Height <= 0)
+            if (string.IsNullOrEmpty(pipeline))
             {
-                // Ekranda "No Video" resmi göster
-                if (pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
-                    pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
+                MessageBox.Show("RTSP adresi için GStreamer pipeline'ı oluşturulamadı. Adresi kontrol edin.");
                 return;
             }
+
+            txtSSHOutput.AppendText($"\r\nKullanılan Pipeline: {pipeline}\r\n");
+            Application.DoEvents();
 
             try
             {
-                // Başka bir thread'den çağrıldıysa ana UI thread'ine yönlendir (Bu kısım kritik)
-                if (this.InvokeRequired)
+                lock (streamLock)
                 {
-                    this.BeginInvoke(new Action(() => CameraGStreamer_OnNewImage(sender, image)));
-                    return;
+                    cameraGStreamer.Start(pipeline);
+                    isGStreamerRunning = true;
                 }
-
-                // PictureBox'ın varlığından emin ol
-                if (pb_gimbalVideo == null || pb_gimbalVideo.IsDisposed)
-                    return;
-
-                var old = pb_gimbalVideo.Image;
-
-                // GIMBALVIDEOCONTROL'DEKİ GÜVENLİ VE HIZLI YÖNTEMİ KULLANIYORUZ
-                // Gelen görüntünün bellek adresindeki pikselleri doğrudan kopyalayarak yeni bir Bitmap oluşturuyoruz.
-                pb_gimbalVideo.Image = new Bitmap(
-                    image.Width,
-                    image.Height,
-                    4 * image.Width, // Stride (bir satır pikselin bellekte kapladığı byte sayısı)
-                    PixelFormat.Format32bppPArgb,
-                    image.LockBits(Rectangle.Empty, null, SKColorType.Bgra8888).Scan0
-                );
-
-                // Artık ihtiyaç duyulmayan eski resmi bellekten temizle (Hafıza sızıntısını önler)
-                if (old != null && old != global::MissionPlanner.Properties.Resources.no_video)
-                {
-                    old.Dispose();
-                }
+                txtSSHOutput.AppendText("GStreamer başlatıldı, yayın bekleniyor...\r\n");
             }
             catch (Exception ex)
             {
-                // Bir hata olursa log'a yaz, böylece ne olduğunu anlarız
-                log.Error("Görüntü işlenirken hata: " + ex.ToString());
+                isGStreamerRunning = false;
+                txtSSHOutput.AppendText($"\r\nGStreamer başlatılırken HATA: {ex.Message}\r\n");
+                log.Error(ex);
+            }
+        }
+        private void btnDisconnectRTSP_Click(object sender, EventArgs e)
+        {
+            lock (streamLock)
+            {
+                cameraGStreamer.Stop();
+                isGStreamerRunning = false; // YENİ: Stream'in durduğunu işaretle
+            }
+
+            // PictureBox'ı temizle
+            if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
+                pb_gimbalVideo.Image.Dispose();
+            pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
+
+            txtSSHOutput.AppendText("\r\nRTSP yayını durduruldu.\r\n");
+        }
+        private void CameraGStreamer_OnNewImage(object sender, MPBitmap image)
+        {
+            // ÖNCE INVOKE KONTROLÜ YAPILIR. Bu kısımda lock OLMAZ.
+            // Bu sayede arka plan thread'i işini UI thread'e devredip hemen çıkar, kilidi meşgul etmez.
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => CameraGStreamer_OnNewImage(sender, image)));
+                return;
+            }
+
+            // ARTIK BU NOKTADAN SONRASI KESİNLİKLE ANA ARAYÜZ (UI) THREAD'İNDE ÇALIŞIR.
+            // Şimdi 'Start/Stop' komutlarıyla çakışmayı önlemek için kilidi güvenle kullanabiliriz.
+            lock (streamLock)
+            {
+                // GStreamer'ın bizim tarafımızdan durdurulup durdurulmadığını KİLİT İÇİNDE kontrol et.
+                if (!isGStreamerRunning)
+                    return;
+
+                if (this.IsDisposed || !this.IsHandleCreated)
+                    return;
+
+                try
+                {
+                    // Gelen görüntü geçersizse "no_video" resmini göster
+                    if (image == null || image.Width <= 0 || image.Height <= 0)
+                    {
+                        if (pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
+                        {
+                            // Sadece önceki bir video karesiyse dispose et (no_video resmini asla dispose etme)
+                            pb_gimbalVideo.Image?.Dispose();
+                            pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
+                        }
+                        return;
+                    }
+
+                    var old = pb_gimbalVideo.Image;
+
+                    pb_gimbalVideo.Image = new Bitmap(
+                        image.Width, image.Height, 4 * image.Width,
+                        PixelFormat.Format32bppPArgb,
+                        image.LockBits(Rectangle.Empty, null, SKColorType.Bgra8888).Scan0
+                    );
+
+                    // Eski resmi (eğer "no_video" değilse) temizle
+                    if (old != null && old != global::MissionPlanner.Properties.Resources.no_video)
+                    {
+                        old.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Görüntü işlenirken hata: " + ex.ToString());
+                }
             }
         }
     }
