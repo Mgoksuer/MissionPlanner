@@ -6683,7 +6683,7 @@ namespace MissionPlanner.GCSViews
 
         }
 
-
+        //SSH ATMA
         private SshClient sshClient;
         private CancellationTokenSource _scriptReadCts;
         private ShellStream _scriptShellStream;
@@ -6834,7 +6834,7 @@ namespace MissionPlanner.GCSViews
         }
 
 
-
+        //JETSON PYTHON SCRİPT BAŞLATMA
         private async Task CleanupRemotePythonProcess()
         {
             if (sshClient == null || !sshClient.IsConnected)
@@ -7014,7 +7014,7 @@ namespace MissionPlanner.GCSViews
         }
 
 
-
+        //JETSON PYTHON FUNCTİONA KOMUT
         private void SendCommandToJetson(string command)
         {
             string sshAddress = txtSSHAddress.Text.Trim();
@@ -7064,7 +7064,7 @@ namespace MissionPlanner.GCSViews
         }
 
 
-
+        //ARAYÜZDE PYTHON SCRİPTİ BAŞLATMA
         private CancellationTokenSource _cancellationTokenSource;
         private System.Diagnostics.Process _pythonProcess;
         private void CleanupPythonProcess()
@@ -7287,11 +7287,10 @@ namespace MissionPlanner.GCSViews
 
 
 
-
+        //RTSP GSTREAMER
         private readonly object streamLock = new object();
         private volatile bool isGStreamerRunning = false;
         private GStreamer cameraGStreamer;
-
         private void pnlCameraDisplay_Paint(object sender, PaintEventArgs e)
         {
 
