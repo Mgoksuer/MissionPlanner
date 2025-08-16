@@ -1,8 +1,22 @@
+#if !LIB
+// XXX: We need both the System.Drawing.Bitmap from System.Drawing and MissionPlanner.Drawing
+extern alias Drawing;
+using MPBitmap = Drawing::System.Drawing.Bitmap;
+#else
+using MPBitmap = System.Drawing.Bitmap;
+#endif
+
+using System;
+using System.Drawing;
+
 using DirectShowLib;
+using SkiaSharp;             // SKColorType için
+using Dowding.Model;
 using GMap.NET;
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
 using log4net;
+using Microsoft.Scripting.Utils;
 using MissionPlanner.ArduPilot;
 using MissionPlanner.Controls;
 using MissionPlanner.GeoRef;
@@ -11,6 +25,7 @@ using MissionPlanner.Log;
 using MissionPlanner.Maps;
 using MissionPlanner.Utilities;
 using MissionPlanner.Warnings;
+using Renci.SshNet;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,18 +35,19 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Dowding.Model;
-using Microsoft.Scripting.Utils;
 using WebCamService;
 using ZedGraph;
 using LogAnalyzer = MissionPlanner.Utilities.LogAnalyzer;
 using TableLayoutPanelCellPosition = System.Windows.Forms.TableLayoutPanelCellPosition;
 using UnauthorizedAccessException = System.UnauthorizedAccessException;
+using SkiaSharp;
+using System.Drawing.Imaging;
 
 // written by michael oborne
 
@@ -39,6 +55,7 @@ namespace MissionPlanner.GCSViews
 {
     public partial class FlightData : MyUserControl, IActivate, IDeactivate
     {
+        private GStreamer cameraGStreamer;
         public static FlightData instance;
         public static GMapOverlay kmlpolygons;
         public static HUD myhud;
@@ -239,6 +256,9 @@ namespace MissionPlanner.GCSViews
             InitializeComponent();
 
             log.Info("Components Done");
+
+            cameraGStreamer = new GStreamer();
+            cameraGStreamer.OnNewImage += CameraGStreamer_OnNewImage;
 
             instance = this;
 
@@ -2641,6 +2661,7 @@ namespace MissionPlanner.GCSViews
         private void FlightData_FormClosing(object sender, FormClosingEventArgs e)
         {
             threadrun = false;
+            cameraGStreamer?.Stop();
 
             DateTime end = DateTime.Now.AddSeconds(5);
 
@@ -2659,6 +2680,7 @@ namespace MissionPlanner.GCSViews
 
         private void FlightData_Load(object sender, EventArgs e)
         {
+            
             POI.POIModified += POI_POIModified;
 
             if (!Settings.Instance.ContainsKey("ShowNoFly") || Settings.Instance.GetBoolean("ShowNoFly"))
@@ -6654,6 +6676,709 @@ namespace MissionPlanner.GCSViews
 
             // Pass `this` to keep the pop-out always on top
             form.Show(this);
+        }
+
+        private void pnlRTSPInput_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+
+        private SshClient sshClient;
+        private CancellationTokenSource _scriptReadCts;
+        private ShellStream _scriptShellStream;
+        private async void btnConnectSSH_Click(object sender, EventArgs e)
+        {
+            btnConnectSSH.Enabled = false;
+            txtSSHAddress.Enabled = false;
+            txtSSHPassword.Enabled = false;
+            btnDisconnectSSH.Enabled = false;
+            btnStartScript.Enabled = false; // Başlangıçta script başlat butonunu devre dışı bırak
+            btnStopAutoMissionScript.Enabled = false; // Başlangıçta script durdur butonunu devre dışı bırak
+
+            txtSSHOutput.Text = "SSH bağlantısı kuruluyor... Lütfen bekleyiniz.\r\n";
+            Application.DoEvents();
+
+            string sshHost = txtSSHAddress.Text.Trim();
+            string password = txtSSHPassword.Text;
+
+            string[] parts = sshHost.Split('@');
+            if (parts.Length != 2)
+            {
+                MessageBox.Show("SSH Adresi 'kullanıcıadı@ip_adresi' formatında olmalıdır (örn: siha@192.168.1.148).", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnConnectSSH.Enabled = true;
+                txtSSHAddress.Enabled = true;
+                txtSSHPassword.Enabled = true;
+                txtSSHOutput.Text = "Bağlantı formatı hatası.";
+                return;
+            }
+
+            string username = parts[0];
+            string ipAddress = parts[1];
+
+            CleanupSshClient();
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    sshClient = new SshClient(ipAddress, username, password);
+                    sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(10);
+                    sshClient.Connect();
+
+                    if (sshClient.IsConnected)
+                    {
+                        this.BeginInvoke((MethodInvoker)delegate {
+                            txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
+                            btnStartScript.Enabled = true;
+                            btnDisconnectSSH.Enabled = true;
+                        });
+                        try
+                        {
+                            using (var command = sshClient.CreateCommand($"ls -l /home/{username}/Downloads/"))
+                            {
+                                string result = command.Execute();
+                                string error = command.Error;
+
+                                this.BeginInvoke((MethodInvoker)delegate {
+                                    txtSSHOutput.AppendText($"\r\n--- Jetson'daki İndirilenler Dizini Listesi ---\r\n" + result + "\r\n");
+                                    if (!string.IsNullOrEmpty(error))
+                                    {
+                                        txtSSHOutput.AppendText("--- Hata Çıktısı (stderr) ---\r\n" + error + "\r\n");
+                                    }
+                                    txtSSHOutput.AppendText("--- Liste Sonu ---\r\n");
+                                });
+                            }
+                        }
+                        catch (Renci.SshNet.Common.SshException cmdEx)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate {
+                                txtSSHOutput.AppendText($"\r\nSSH başlangıç komutu hatası: {cmdEx.Message}\r\n");
+                            });
+                        }
+                    }
+                    else
+                    {
+                        this.BeginInvoke((MethodInvoker)delegate {
+                            txtSSHOutput.AppendText("SSH bağlantısı kurulamadı: İstemci bağlanamadı.\r\n");
+                            btnConnectSSH.Enabled = true;
+                            txtSSHAddress.Enabled = true;
+                            txtSSHPassword.Enabled = true;
+                        });
+                    }
+                }
+
+                catch (SocketException socketEx)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nAğ Hatası: {socketEx.Message} (Kod: {socketEx.SocketErrorCode})\r\n" +
+                                               "Jetson'a ulaşılamıyor veya IP adresi yanlış olabilir. Güvenlik duvarını kontrol edin.\r\n");
+                        btnConnectSSH.Enabled = true;
+                        txtSSHAddress.Enabled = true;
+                        txtSSHPassword.Enabled = true;
+                    });
+                }
+            });
+        }
+        private void CleanupSshClient()
+        {
+            if (sshClient != null)
+            {
+                if (sshClient.IsConnected)
+                {
+                    try
+                    {
+                        sshClient.Disconnect();
+                    }
+                    catch (Exception ex)
+                    {
+                    }
+                }
+                sshClient.Dispose();
+                sshClient = null;
+            }
+        }
+        private void CleanupScriptStream()
+        {
+            _scriptReadCts?.Cancel();
+            _scriptReadCts?.Dispose();
+            _scriptReadCts = null;
+
+            if (_scriptShellStream != null)
+            {
+                _scriptShellStream.Close();
+                _scriptShellStream.Dispose();
+                _scriptShellStream = null;
+            }
+        }
+        private void btnDisconnectSSH_Click(object sender, EventArgs e)
+        {
+            CleanupScriptStream(); 
+            CleanupSshClient();
+            if (sshClient != null && sshClient.IsConnected)
+            {
+                CleanupSshClient();
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı başarıyla kesildi.\r\n");
+            }
+            else
+            {
+                txtSSHOutput.AppendText("\r\nZaten aktif bir SSH bağlantısı yok.\r\n");
+            }
+
+            btnConnectSSH.Enabled = true;
+            txtSSHAddress.Enabled = true;
+            txtSSHPassword.Enabled = true;
+            btnDisconnectSSH.Enabled = false;
+            btnStartScript.Enabled = false; // Bağlantı kesilince script başlat butonunu da devre dışı bırak
+            btnStopAutoMissionScript.Enabled = false; // Bağlantı kesilince script durdur butonunu da devre dışı bırak
+        }
+
+
+
+        private async Task CleanupRemotePythonProcess()
+        {
+            if (sshClient == null || !sshClient.IsConnected)
+                return;
+
+            string scriptName = "rtsp_test_server.py"; // Kontrol edilecek script adı
+            string pythonExecutable = "python3"; // Python yürütülebilir adını da arama paternine eklemek daha spesifik olur
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    // pgrep ile scriptin PID'sini bulmaya çalışın (tam argüman listesini ara)
+                    using (var command = sshClient.CreateCommand($"pgrep -f \"{pythonExecutable} {scriptName}\""))
+                    {
+                        string pids = command.Execute().Trim();
+                        string error = command.Error;
+
+                        if (!string.IsNullOrEmpty(pids))
+                        {
+                            foreach (var pidStr in pids.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                            {
+                                if (uint.TryParse(pidStr.Trim(), out uint pidToKill))
+                                {
+                                    txtSSHOutput.AppendText($"Temizleme: PID {pidToKill} durduruluyor...\r\n");
+                                    using (var killCommand = sshClient.CreateCommand($"kill -9 {pidToKill}"))
+                                    {
+                                        string killResult = killCommand.Execute();
+                                        string killError = killCommand.Error;
+                                        txtSSHOutput.AppendText($"Kill sonucu (PID {pidToKill}): stdout='{killResult}', stderr='{killError}'\r\n");
+                                    }
+                                }
+                            }
+                            txtSSHOutput.AppendText($"Temizleme: Önceki '{scriptName}' scriptleri sonlandırıldı.\r\n");
+                        }
+                        else if (!string.IsNullOrEmpty(error))
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate {
+                                txtSSHOutput.AppendText($"\r\nTemizleme sırasında hata (pgrep stderr): {error}\r\n");
+                            });
+                        }
+                    }
+                }
+                catch (Renci.SshNet.Common.SshException sshEx)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nTemizleme sırasında SSH hatası: {sshEx.Message}\r\n");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate {
+                        txtSSHOutput.AppendText($"\r\nTemizleme sırasında beklenmedik hata: {ex.Message}\r\n");
+                    });
+                }
+            });
+        }
+        private async Task ReadScriptOutputAsync(CancellationToken token)
+        {
+            var buffer = new byte[1024];
+            var outputBuilder = new StringBuilder();
+
+            try
+            {
+                while (!token.IsCancellationRequested && _scriptShellStream != null)
+                {
+                    int bytesRead = await _scriptShellStream.ReadAsync(buffer, 0, buffer.Length, token);
+                    if (bytesRead > 0)
+                    {
+                        string outputChunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        outputBuilder.Append(outputChunk);
+
+                        // Satır satır işleme
+                        while (outputBuilder.ToString().Contains("\n"))
+                        {
+                            int newLineIndex = outputBuilder.ToString().IndexOf('\n');
+                            string line = outputBuilder.ToString(0, newLineIndex).Trim();
+                            outputBuilder.Remove(0, newLineIndex + 1);
+
+                            if (!string.IsNullOrEmpty(line))
+                            {
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[JETSON] {line}\r\n");
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        await Task.Delay(100, token); // CPU kullanımını azalt
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // İptal edildi, sessizce çık
+            }
+            catch (Exception ex)
+            {
+                this.BeginInvoke((MethodInvoker)delegate
+                {
+                    txtSSHOutput.AppendText($"\r\nÇıktı okuma hatası: {ex.Message}\r\n");
+                });
+            }
+            finally
+            {
+                this.BeginInvoke((MethodInvoker)delegate
+                {
+                    txtSSHOutput.AppendText("\r\nScript çıktı izleme sonlandırıldı.\r\n");
+                    btnStartScript.Enabled = true;
+                    btnStopScript.Enabled = false;
+                });
+            }
+        }
+        private async void btnStartScript_Click(object sender, EventArgs e)
+        {
+            btnStartScript.Enabled = false;
+            txtSSHOutput.AppendText("\r\nJetson'da RTSP Python scripti başlatılıyor ve çıktılar izleniyor...\r\n");
+
+            if (sshClient == null || !sshClient.IsConnected)
+            {
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil!\r\n");
+                btnStartScript.Enabled = true;
+                return;
+            }
+
+            // Önceki işlemleri temizle
+            await CleanupRemotePythonProcess();
+            CleanupScriptStream();
+
+            string scriptDirectory = "/home/ubuntu/Downloads/";
+            string scriptName = "gorev_sunucusu.py";
+            string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
+
+            try
+            {
+                _scriptShellStream = sshClient.CreateShellStream("customShell", 80, 24, 800, 600, 1024);
+                _scriptReadCts = new CancellationTokenSource();
+
+                // Komutu çalıştır
+                _scriptShellStream.WriteLine(pythonCmd);
+                _scriptShellStream.Flush();
+
+                // Çıktıları okumak için async task başlat
+                _ = Task.Run(() => ReadScriptOutputAsync(_scriptReadCts.Token), _scriptReadCts.Token);
+
+                btnStopScript.Enabled = true;
+                txtSSHOutput.AppendText("\r\nScript çalıştırıldı. Çıktılar bekleniyor...\r\n");
+
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nHata: {ex.Message}\r\n");
+                CleanupScriptStream();
+                btnStartScript.Enabled = true;
+            }
+        }
+        private void btnStopScript_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // ShellStream'e Ctrl+C gönder (SIGINT)
+                if (_scriptShellStream != null && _scriptShellStream.CanWrite)
+                {
+                    _scriptShellStream.Write("\x03"); // Ctrl+C
+                    _scriptShellStream.Flush();
+                }
+
+                CleanupScriptStream();
+                txtSSHOutput.AppendText("\r\nScript durduruldu ve kaynaklar temizlendi.\r\n");
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nDurdurma hatası: {ex.Message}\r\n");
+            }
+        }
+
+
+
+        private void SendCommandToJetson(string command)
+        {
+            string sshAddress = txtSSHAddress.Text.Trim();
+            if (!sshAddress.Contains("@"))
+            {
+                txtSSHOutput.AppendText("\r\nHATA: SSH Adresi 'kullanici@ipadresi' formatinda olmali.\r\n");
+                return;
+            }
+            string ipAddress = sshAddress.Split('@')[1];
+            int port = 65432;
+
+            try
+            {
+                using (TcpClient client = new TcpClient())
+                {
+                    // Bağlantı için 2 saniyelik bir zaman aşımı ekleyelim
+                    var result = client.BeginConnect(ipAddress, port, null, null);
+                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+
+                    if (!success)
+                    {
+                        throw new Exception("Sunucuya baglanilamadi (zaman asimi).");
+                    }
+
+                    client.EndConnect(result);
+
+                    byte[] data = Encoding.UTF8.GetBytes(command);
+                    using (NetworkStream stream = client.GetStream())
+                    {
+                        stream.Write(data, 0, data.Length);
+                        txtSSHOutput.AppendText($"\r\n>>> Komut '{command}' sunucuya gonderildi.\r\n");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nHATA: Komut gonderme basarisiz: {ex.Message}\r\n");
+            }
+        }
+        private void btnStartKamikaze_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE");
+        }
+        private void btnStartKitlenme_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_LOCK");
+        }
+
+
+
+        private CancellationTokenSource _cancellationTokenSource;
+        private System.Diagnostics.Process _pythonProcess;
+        private void CleanupPythonProcess()
+        {
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
+
+            if (_pythonProcess != null)
+            {
+                if (!_pythonProcess.HasExited)
+                {
+                    try
+                    {
+                        if (!_pythonProcess.WaitForExit(1000))
+                        {
+                            _pythonProcess.Kill();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        txtSSHOutput.AppendText($"\r\nKalan Python sürecini temizleme hatası: {ex.Message}\r\n");
+                    }
+                }
+                _pythonProcess.Dispose();
+                _pythonProcess = null;
+            }
+        }
+        private async void btnRunAutoMissionScript_Click(object sender, EventArgs e)
+        {
+            btnRunAutoMissionScript.Enabled = false;
+            btnStopAutoMissionScript.Enabled = true;
+            txtSSHOutput.AppendText("\r\nPython scripti başlatılıyor...\r\n");
+
+            string scriptPath = @"C:\Users\skywa\Downloads\auto_mission.py";
+
+            if (!File.Exists(scriptPath))
+            {
+                MessageBox.Show($"Script bulunamadı: {scriptPath}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
+                return;
+            }
+            CleanupPythonProcess();
+
+            _cancellationTokenSource = new CancellationTokenSource();
+            var token = _cancellationTokenSource.Token;
+
+            var psi = new ProcessStartInfo();
+            psi.FileName = "python"; // veya "python3"
+            psi.Arguments = $"-u \"{scriptPath}\""; // -u parametresiyle unbuffered output sağlanır
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+
+            try
+            {
+                _pythonProcess = Process.Start(psi);
+
+                if (_pythonProcess == null)
+                {
+                    this.BeginInvoke((MethodInvoker)delegate
+                    {
+                        MessageBox.Show("Python scripti başlatılamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    });
+                    return;
+                }
+
+                // Output stream reader task
+                Task.Run(async () =>
+                {
+                    char[] buffer = new char[1024]; // Small buffer for frequent updates
+                    int bytesRead;
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            bytesRead = await _pythonProcess.StandardOutput.ReadAsync(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
+                            {
+                                string output = new string(buffer, 0, bytesRead);
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[PY_OUT] {output}"); // Append without adding extra newlines
+                                });
+                            }
+                            else if (_pythonProcess.HasExited)
+                            {
+                                break; // Exit if the process has exited and no more data
+                            }
+                            else
+                            {
+                                await Task.Delay(50); // Small delay to prevent busy-waiting
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"[PY_OUT_ERR_STREAM] {ex.Message}\r\n");
+                            });
+                            break;
+                        }
+                    }
+                }, token);
+
+                // Error stream reader task (similar modification)
+                Task.Run(async () =>
+                {
+                    char[] buffer = new char[1024];
+                    int bytesRead;
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            bytesRead = await _pythonProcess.StandardError.ReadAsync(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
+                            {
+                                string output = new string(buffer, 0, bytesRead);
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"[PY_ERR] {output}"); // Append without adding extra newlines
+                                });
+                            }
+                            else if (_pythonProcess.HasExited)
+                            {
+                                break;
+                            }
+                            else
+                            {
+                                await Task.Delay(50);
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText($"[PY_ERR_STREAM_ERR] {ex.Message}\r\n");
+                            });
+                            break;
+                        }
+                    }
+                }, token);
+
+
+                await Task.Run(() => _pythonProcess.WaitForExit(), token);
+
+                if (token.IsCancellationRequested)
+                {
+                    txtSSHOutput.AppendText("\r\nPython scripti dışarıdan iptal edildi.\r\n");
+                }
+                else
+                {
+                    txtSSHOutput.AppendText("\r\nPython scripti tamamlandı.\r\n");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                txtSSHOutput.AppendText("\r\nPython scripti iptal edildi (OperationCanceledException yakalandı).\r\n");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Script çalıştırma hatası: {ex.Message}", "Script Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                txtSSHOutput.AppendText($"\r\nScript çalıştırma hatası: {ex.Message}\r\n");
+            }
+            finally
+            {
+                btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
+                CleanupPythonProcess();
+            }
+        }
+        private void btnStopAutoMissionScript_Click(object sender, EventArgs e)
+        {
+            if (_pythonProcess != null && !_pythonProcess.HasExited)
+            {
+                try
+                {
+                    _cancellationTokenSource?.Cancel();
+
+                    if (!_pythonProcess.WaitForExit(500))
+                    {
+                        _pythonProcess.Kill();
+                        txtSSHOutput.AppendText("\r\nPython scripti başarıyla durduruldu.\r\n");
+                    }
+                    else
+                    {
+                        txtSSHOutput.AppendText("\r\nPython scripti başarıyla durduruldu.\r\n");
+                    }
+                }
+
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Script durdurma hatası: {ex.Message}", "Durdurma Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    txtSSHOutput.AppendText($"\r\nScript durdurma hatası: {ex.Message}\r\n");
+                }
+                finally
+                {
+                    btnRunAutoMissionScript.Enabled = true;
+                    btnStopAutoMissionScript.Enabled = false;
+                    CleanupPythonProcess();
+                }
+            }
+            else
+            {
+                txtSSHOutput.AppendText("\r\nÇalışan bir Python scripti bulunamadı.\r\n");
+                btnRunAutoMissionScript.Enabled = true;
+                btnStopAutoMissionScript.Enabled = false;
+            }
+        }
+
+
+
+
+        private void btnConnectRTSP_Click(object sender, EventArgs e)
+        {
+            // TextBox'tan RTSP adresini al
+            string rtsp_url = txtRTSPAddress.Text.Trim(); // TextBox'ınızın adını doğru yazdığınızdan emin olun
+
+            if (string.IsNullOrEmpty(rtsp_url))
+            {
+                MessageBox.Show("Lütfen geçerli bir RTSP adresi girin.");
+                return;
+            }
+
+            // CameraProtocol.cs'ten alınan standart ve çalışan RTSP pipeline'ı
+            // rtspsrc location={uri} latency=41 ... ! appsink name=outsink sync=false
+            // Sadece rtsp:// ekliyoruz ve uri'yi adresten alıyoruz.
+            string pipeline = $"rtspsrc location={rtsp_url} latency=100 ! rtph264depay ! h264parse ! decodebin ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink sync=false";
+
+            txtSSHOutput.AppendText($"\r\nPipeline ile GStreamer başlatılıyor: {rtsp_url}\r\n");
+
+            // GStreamer'ı başlat
+            cameraGStreamer.Start(pipeline);
+        }
+
+        private void btnDisconnectRTSP_Click(object sender, EventArgs e)
+        {
+            // GStreamer'ı durdur
+            cameraGStreamer.Stop();
+
+            // PictureBox'ı temizle
+            pb_gimbalVideo.Image?.Dispose();
+            pb_gimbalVideo.Image = null;
+
+            txtSSHOutput.AppendText("\r\nRTSP yayını durduruldu.\r\n");
+        }
+
+        
+
+        private void pnlCameraDisplay_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+        private void CameraGStreamer_OnNewImage(object sender, MPBitmap image)
+        {
+            // Form veya PictureBox kapanmışsa işlem yapma
+            if (this.IsDisposed || !this.IsHandleCreated)
+                return;
+
+            // GStreamer'dan geçersiz (null veya boyutsuz) bir kare gelirse
+            if (image == null || image.Width <= 0 || image.Height <= 0)
+            {
+                // Ekranda "No Video" resmi göster
+                if (pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
+                    pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
+                return;
+            }
+
+            try
+            {
+                // Başka bir thread'den çağrıldıysa ana UI thread'ine yönlendir (Bu kısım kritik)
+                if (this.InvokeRequired)
+                {
+                    this.BeginInvoke(new Action(() => CameraGStreamer_OnNewImage(sender, image)));
+                    return;
+                }
+
+                // PictureBox'ın varlığından emin ol
+                if (pb_gimbalVideo == null || pb_gimbalVideo.IsDisposed)
+                    return;
+
+                var old = pb_gimbalVideo.Image;
+
+                // GIMBALVIDEOCONTROL'DEKİ GÜVENLİ VE HIZLI YÖNTEMİ KULLANIYORUZ
+                // Gelen görüntünün bellek adresindeki pikselleri doğrudan kopyalayarak yeni bir Bitmap oluşturuyoruz.
+                pb_gimbalVideo.Image = new Bitmap(
+                    image.Width,
+                    image.Height,
+                    4 * image.Width, // Stride (bir satır pikselin bellekte kapladığı byte sayısı)
+                    PixelFormat.Format32bppPArgb,
+                    image.LockBits(Rectangle.Empty, null, SKColorType.Bgra8888).Scan0
+                );
+
+                // Artık ihtiyaç duyulmayan eski resmi bellekten temizle (Hafıza sızıntısını önler)
+                if (old != null && old != global::MissionPlanner.Properties.Resources.no_video)
+                {
+                    old.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Bir hata olursa log'a yaz, böylece ne olduğunu anlarız
+                log.Error("Görüntü işlenirken hata: " + ex.ToString());
+            }
         }
     }
 }
