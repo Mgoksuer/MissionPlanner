@@ -265,6 +265,10 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
+            this.txtScriptPath = new System.Windows.Forms.TextBox();
+            this.txtScriptName = new System.Windows.Forms.TextBox();
+            this.label12 = new System.Windows.Forms.Label();
+            this.label11 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -686,6 +690,10 @@ namespace MissionPlanner.GCSViews
             // panel3
             // 
             this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel3.Controls.Add(this.label11);
+            this.panel3.Controls.Add(this.label12);
+            this.panel3.Controls.Add(this.txtScriptName);
+            this.panel3.Controls.Add(this.txtScriptPath);
             this.panel3.Controls.Add(this.btnStartScript);
             this.panel3.Controls.Add(this.btnStopAutoMissionScript);
             this.panel3.Controls.Add(this.btnStartKitlenme);
@@ -2968,7 +2976,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 180D;
+            this.windDir1.Direction = 360D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -3120,6 +3128,26 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
+            // txtScriptPath
+            // 
+            resources.ApplyResources(this.txtScriptPath, "txtScriptPath");
+            this.txtScriptPath.Name = "txtScriptPath";
+            // 
+            // txtScriptName
+            // 
+            resources.ApplyResources(this.txtScriptName, "txtScriptName");
+            this.txtScriptName.Name = "txtScriptName";
+            // 
+            // label12
+            // 
+            resources.ApplyResources(this.label12, "label12");
+            this.label12.Name = "label12";
+            // 
+            // label11
+            // 
+            resources.ApplyResources(this.label11, "label11");
+            this.label11.Name = "label11";
+            // 
             // FlightData
             // 
             this.Controls.Add(this.MainH);
@@ -3152,6 +3180,7 @@ namespace MissionPlanner.GCSViews
             this.pnlRTSPInput.ResumeLayout(false);
             this.pnlRTSPInput.PerformLayout();
             this.panel3.ResumeLayout(false);
+            this.panel3.PerformLayout();
             this.tabControlactions.ResumeLayout(false);
             this.tabQuick.ResumeLayout(false);
             this.tableLayoutPanelQuick.ResumeLayout(false);
@@ -3470,5 +3499,9 @@ namespace MissionPlanner.GCSViews
         private TextBox txtRTSPAddress;
         private Panel pnlCameraDisplay;
         private PictureBox pb_gimbalVideo;
+        private TextBox txtScriptPath;
+        private Label label12;
+        private TextBox txtScriptName;
+        private Label label11;
     }
 }

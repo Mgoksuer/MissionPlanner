@@ -6829,8 +6829,8 @@ namespace MissionPlanner.GCSViews
             txtSSHAddress.Enabled = true;
             txtSSHPassword.Enabled = true;
             btnDisconnectSSH.Enabled = false;
-            btnStartScript.Enabled = false; // Bağlantı kesilince script başlat butonunu da devre dışı bırak
-            btnStopAutoMissionScript.Enabled = false; // Bağlantı kesilince script durdur butonunu da devre dışı bırak
+            btnStartScript.Enabled = false; 
+            btnStopAutoMissionScript.Enabled = false; 
         }
 
 
@@ -6953,38 +6953,46 @@ namespace MissionPlanner.GCSViews
         private async void btnStartScript_Click(object sender, EventArgs e)
         {
             btnStartScript.Enabled = false;
-            txtSSHOutput.AppendText("\r\nJetson'da RTSP Python scripti başlatılıyor ve çıktılar izleniyor...\r\n");
-
+            txtSSHOutput.AppendText("\r\nJetson'da Python scripti başlatılıyor ve çıktılar izleniyor...\r\n");
             if (sshClient == null || !sshClient.IsConnected)
             {
-                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil!\r\n");
+                txtSSHOutput.AppendText("\r\nSSH bağlantısı kurulu değil! Lütfen önce SSH bağlantısı kurun.\r\n");
                 btnStartScript.Enabled = true;
                 return;
             }
 
-            // Önceki işlemleri temizle
+            string scriptDirectory = txtScriptPath.Text.Trim(); 
+            string scriptName = txtScriptName.Text.Trim();     
+            if (string.IsNullOrEmpty(scriptDirectory) || string.IsNullOrEmpty(scriptName))
+            {
+                MessageBox.Show("Lütfen script yolu ve script adını girin.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnStartScript.Enabled = true;
+                return;
+            }
+            if (!scriptName.EndsWith(".py", StringComparison.OrdinalIgnoreCase))
+            {
+                scriptName += ".py";
+            }
+
             await CleanupRemotePythonProcess();
             CleanupScriptStream();
 
-            string scriptDirectory = "/home/siha/Downloads/";
-            string scriptName = "'MJPGmultithread_rtsp_pipeline (copy).py'";
-            string pythonCmd = $"cd {scriptDirectory} && python3 {scriptName}";
+            string scriptFullPath = $"{scriptDirectory.Replace("\\", "/")}/{scriptName}";
+            string pythonCmd = $"cd {scriptDirectory.Replace("\\", "/")} && python3 {scriptName}";
 
             try
             {
                 _scriptShellStream = sshClient.CreateShellStream("customShell", 80, 24, 800, 600, 1024);
                 _scriptReadCts = new CancellationTokenSource();
 
-                // Komutu çalıştır
                 _scriptShellStream.WriteLine(pythonCmd);
                 _scriptShellStream.Flush();
 
-                // Çıktıları okumak için async task başlat
                 _ = Task.Run(() => ReadScriptOutputAsync(_scriptReadCts.Token), _scriptReadCts.Token);
 
                 btnStopScript.Enabled = true;
-                txtSSHOutput.AppendText("\r\nScript çalıştırıldı. Çıktılar bekleniyor...\r\n");
-
+                btnStopAutoMissionScript.Enabled = true; 
+                txtSSHOutput.AppendText($"\r\nScript '{scriptName}' çalıştırıldı. Çıktılar bekleniyor...\r\n");
             }
             catch (Exception ex)
             {
@@ -7287,7 +7295,7 @@ namespace MissionPlanner.GCSViews
 
 
 
-        //RTSP GSTREAMER
+        //RTSP 
         private readonly object streamLock = new object();
         private volatile bool isGStreamerRunning = false;
         private GStreamer cameraGStreamer;
@@ -7297,6 +7305,7 @@ namespace MissionPlanner.GCSViews
         }
         private void btnConnectRTSP_Click(object sender, EventArgs e)
         {
+            btnDisconnectRTSP.Enabled = true;
             string rtsp_url = txtRTSPAddress.Text.Trim();
 
             if (string.IsNullOrEmpty(rtsp_url))
@@ -7344,12 +7353,20 @@ namespace MissionPlanner.GCSViews
                 log.Error(ex);
             }
         }
-        private void btnDisconnectRTSP_Click(object sender, EventArgs e)
+        private async void btnDisconnectRTSP_Click(object sender, EventArgs e)
         {
+            // Butonları geçici olarak devre dışı bırak
+            btnConnectRTSP.Enabled = false;
+            btnDisconnectRTSP.Enabled = false;
+            txtRTSPAddress.Enabled = false;
+
+            txtSSHOutput.AppendText("\r\nRTSP yayını durduruluyor, lütfen bekleyin...\r\n");
+            Application.DoEvents(); // UI'nin güncellenmesini sağla
+
             lock (streamLock)
             {
                 cameraGStreamer.Stop();
-                isGStreamerRunning = false; // YENİ: Stream'in durduğunu işaretle
+                isGStreamerRunning = false; // Stream'in durduğunu işaretle
             }
 
             // PictureBox'ı temizle
@@ -7357,7 +7374,15 @@ namespace MissionPlanner.GCSViews
                 pb_gimbalVideo.Image.Dispose();
             pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
 
-            txtSSHOutput.AppendText("\r\nRTSP yayını durduruldu.\r\n");
+            // 3 saniye bekleme
+            await Task.Delay(3000); // 3000 milisaniye = 3 saniye
+
+            txtSSHOutput.AppendText("RTSP yayını durduruldu.\r\n");
+
+            // Butonları tekrar etkinleştir
+            btnConnectRTSP.Enabled = true;
+            txtRTSPAddress.Enabled = true;
+            // btnDisconnectRTSP bu noktada hala devre dışı kalmalı, sadece bağlanınca aktif olur
         }
         private void CameraGStreamer_OnNewImage(object sender, MPBitmap image)
         {
@@ -7414,5 +7439,7 @@ namespace MissionPlanner.GCSViews
                 }
             }
         }
+
+       
     }
 }
