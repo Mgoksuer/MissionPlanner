@@ -26,10 +26,8 @@ using MissionPlanner.Maps;
 using MissionPlanner.Utilities;
 using MissionPlanner.Warnings;
 using Renci.SshNet;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
@@ -6689,15 +6687,16 @@ namespace MissionPlanner.GCSViews
         private ShellStream _scriptShellStream;
         private async void btnConnectSSH_Click(object sender, EventArgs e)
         {
+            // Disable buttons and inputs to prevent re-triggering during connection
             btnConnectSSH.Enabled = false;
             txtSSHAddress.Enabled = false;
             txtSSHPassword.Enabled = false;
             btnDisconnectSSH.Enabled = false;
-            btnStartScript.Enabled = false; // Başlangıçta script başlat butonunu devre dışı bırak
-            btnStopAutoMissionScript.Enabled = false; // Başlangıçta script durdur butonunu devre dışı bırak
+            btnStartScript.Enabled = false; // Keep script buttons disabled until connected
+            btnStopAutoMissionScript.Enabled = false;
 
             txtSSHOutput.Text = "SSH bağlantısı kuruluyor... Lütfen bekleyiniz.\r\n";
-            Application.DoEvents();
+            Application.DoEvents(); // Ensure UI updates immediately
 
             string sshHost = txtSSHAddress.Text.Trim();
             string password = txtSSHPassword.Text;
@@ -6706,6 +6705,7 @@ namespace MissionPlanner.GCSViews
             if (parts.Length != 2)
             {
                 MessageBox.Show("SSH Adresi 'kullanıcıadı@ip_adresi' formatında olmalıdır (örn: siha@192.168.1.148).", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Re-enable controls on format error
                 btnConnectSSH.Enabled = true;
                 txtSSHAddress.Enabled = true;
                 txtSSHPassword.Enabled = true;
@@ -6716,69 +6716,120 @@ namespace MissionPlanner.GCSViews
             string username = parts[0];
             string ipAddress = parts[1];
 
-            CleanupSshClient();
+            CleanupSshClient(); // Ensure any previous client is cleaned up
 
-            await Task.Run(() =>
+            CancellationTokenSource connectCts = new CancellationTokenSource();
+            connectCts.CancelAfter(TimeSpan.FromSeconds(3));
+
+            try
             {
-                try
+                // Run the connection attempt in a separate task to prevent UI freeze
+                await Task.Run(() =>
                 {
-                    sshClient = new SshClient(ipAddress, username, password);
-                    sshClient.ConnectionInfo.Timeout = TimeSpan.FromSeconds(10);
-                    sshClient.Connect();
-
-                    if (sshClient.IsConnected)
+                    try
                     {
-                        this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
-                            btnStartScript.Enabled = true;
-                            btnDisconnectSSH.Enabled = true;
-                        });
-                        try
-                        {
-                            using (var command = sshClient.CreateCommand($"ls -l /home/{username}/Downloads/"))
-                            {
-                                string result = command.Execute();
-                                string error = command.Error;
+                        sshClient = new SshClient(ipAddress, username, password);
+                        sshClient.Connect();
 
-                                this.BeginInvoke((MethodInvoker)delegate {
-                                    txtSSHOutput.AppendText($"\r\n--- Jetson'daki İndirilenler Dizini Listesi ---\r\n" + result + "\r\n");
-                                    if (!string.IsNullOrEmpty(error))
+                        connectCts.Token.ThrowIfCancellationRequested(); // Check if cancelled during connection
+
+                        if (sshClient.IsConnected)
+                        {
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText("SSH bağlantısı başarıyla kuruldu!\r\n");
+                                btnStartScript.Enabled = true;
+                                btnDisconnectSSH.Enabled = true;
+                                // Assuming the auto mission script button should also be enabled on successful SSH connect
+                                btnStopAutoMissionScript.Enabled = true;
+                            });
+                            try
+                            {
+                                using (var command = sshClient.CreateCommand($"ls -l /home/{username}/Downloads/"))
+                                {
+                                    string result = command.Execute();
+                                    string error = command.Error;
+
+                                    this.BeginInvoke((MethodInvoker)delegate
                                     {
-                                        txtSSHOutput.AppendText("--- Hata Çıktısı (stderr) ---\r\n" + error + "\r\n");
-                                    }
-                                    txtSSHOutput.AppendText("--- Liste Sonu ---\r\n");
+                                        txtSSHOutput.AppendText($"\r\n--- Jetson'daki İndirilenler Dizini Listesi ---\r\n" + result + "\r\n");
+                                        if (!string.IsNullOrEmpty(error))
+                                        {
+                                            txtSSHOutput.AppendText("--- Hata Çıktısı (stderr) ---\r\n" + error + "\r\n");
+                                        }
+                                        txtSSHOutput.AppendText("--- Liste Sonu ---\r\n");
+                                    });
+                                }
+                            }
+                            catch (Renci.SshNet.Common.SshException cmdEx)
+                            {
+                                this.BeginInvoke((MethodInvoker)delegate
+                                {
+                                    txtSSHOutput.AppendText($"\r\nSSH başlangıç komutu hatası: {cmdEx.Message}\r\n");
                                 });
                             }
                         }
-                        catch (Renci.SshNet.Common.SshException cmdEx)
+                        else
                         {
-                            this.BeginInvoke((MethodInvoker)delegate {
-                                txtSSHOutput.AppendText($"\r\nSSH başlangıç komutu hatası: {cmdEx.Message}\r\n");
+                            this.BeginInvoke((MethodInvoker)delegate
+                            {
+                                txtSSHOutput.AppendText("SSH bağlantısı kurulamadı: İstemci bağlanamadı.\r\n");
+                                // Re-enable controls if connection failed after attempt
+                                btnConnectSSH.Enabled = true;
+                                txtSSHAddress.Enabled = true;
+                                txtSSHPassword.Enabled = true;
                             });
                         }
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
-                        this.BeginInvoke((MethodInvoker)delegate {
-                            txtSSHOutput.AppendText("SSH bağlantısı kurulamadı: İstemci bağlanamadı.\r\n");
+                        // This catch handles the cancellation from connectCts.CancelAfter()
+                        this.BeginInvoke((MethodInvoker)delegate
+                        {
+                            txtSSHOutput.AppendText("\r\nBağlantı zaman aşımına uğradı veya iptal edildi.\r\n");
+                            // Re-enable controls on timeout/cancellation
+                            btnConnectSSH.Enabled = true;
+                            txtSSHAddress.Enabled = true;
+                            txtSSHPassword.Enabled = true;
+                        });
+                        CleanupSshClient(); // Ensure client is disposed if cancellation occurs
+                    }
+                    catch (SocketException socketEx)
+                    {
+                        this.BeginInvoke((MethodInvoker)delegate
+                        {
+                            txtSSHOutput.AppendText($"\r\nAğ Hatası: {socketEx.Message} (Kod: {socketEx.SocketErrorCode})\r\n" +
+                                                    "Jetson'a ulaşılamıyor veya IP adresi yanlış olabilir. Güvenlik duvarını kontrol edin.\r\n");
+                            // Re-enable controls on network error
                             btnConnectSSH.Enabled = true;
                             txtSSHAddress.Enabled = true;
                             txtSSHPassword.Enabled = true;
                         });
                     }
-                }
-
-                catch (SocketException socketEx)
-                {
-                    this.BeginInvoke((MethodInvoker)delegate {
-                        txtSSHOutput.AppendText($"\r\nAğ Hatası: {socketEx.Message} (Kod: {socketEx.SocketErrorCode})\r\n" +
-                                               "Jetson'a ulaşılamıyor veya IP adresi yanlış olabilir. Güvenlik duvarını kontrol edin.\r\n");
-                        btnConnectSSH.Enabled = true;
-                        txtSSHAddress.Enabled = true;
-                        txtSSHPassword.Enabled = true;
-                    });
-                }
-            });
+                    catch (Exception ex) // Catch all other exceptions
+                    {
+                        this.BeginInvoke((MethodInvoker)delegate
+                        {
+                            txtSSHOutput.AppendText($"\r\nSSH bağlantısı sırasında beklenmedik hata: {ex.Message}\r\n");
+                            // Re-enable controls on unexpected error
+                            btnConnectSSH.Enabled = true;
+                            txtSSHAddress.Enabled = true;
+                            txtSSHPassword.Enabled = true;
+                        });
+                    }
+                }, connectCts.Token); // Pass the cancellation token to the task
+            }
+            catch (Exception outerEx) // This catches exceptions from Task.Run itself or if awaiting a faulted task
+            {
+                txtSSHOutput.AppendText($"\r\nSSH bağlantı girişimi sırasında genel hata: {outerEx.Message}\r\n");
+                btnConnectSSH.Enabled = true;
+                txtSSHAddress.Enabled = true;
+                txtSSHPassword.Enabled = true;
+            }
+            finally
+            {
+                connectCts.Dispose(); // Dispose the CancellationTokenSource
+            }
         }
         private void CleanupSshClient()
         {
