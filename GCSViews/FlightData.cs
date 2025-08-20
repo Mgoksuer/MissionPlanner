@@ -6723,9 +6723,10 @@ namespace MissionPlanner.GCSViews
         }
 
 
+
+        //PYTHON SCRİPT ÇALIŞTIRMA
         private CancellationTokenSource _cancellationTokenSource;
         private System.Diagnostics.Process _pythonProcess;
-
         private void CleanupPythonProcess()
         {
             _cancellationTokenSource?.Cancel();
