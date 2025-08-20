@@ -32,14 +32,19 @@ namespace MissionPlanner.GCSViews
             this.showIconsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.bindingSourceHud = new System.Windows.Forms.BindingSource(this.components);
             this.pnlCameraDisplay = new System.Windows.Forms.Panel();
+            this.pb_gimbalVideo = new System.Windows.Forms.PictureBox();
             this.contextMenuStripactionstab = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.customizeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.multiLineToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
+            this.btnDisconnectRTSP = new MissionPlanner.Controls.MyButton();
+            this.btnConnectRTSP = new MissionPlanner.Controls.MyButton();
             this.label10 = new System.Windows.Forms.Label();
             this.panel3 = new System.Windows.Forms.Panel();
+            this.label7 = new System.Windows.Forms.Label();
+            this.txtScriptName = new System.Windows.Forms.TextBox();
             this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnStartKitlenme = new MissionPlanner.Controls.MyButton();
             this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
@@ -252,8 +257,6 @@ namespace MissionPlanner.GCSViews
             this.scriptChecker = new System.Windows.Forms.Timer(this.components);
             this.Messagetabtimer = new System.Windows.Forms.Timer(this.components);
             this.bindingSourceStatusTab = new System.Windows.Forms.BindingSource(this.components);
-            this.txtScriptName = new System.Windows.Forms.TextBox();
-            this.label7 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.MainH)).BeginInit();
             this.MainH.Panel1.SuspendLayout();
             this.MainH.Panel2.SuspendLayout();
@@ -268,6 +271,8 @@ namespace MissionPlanner.GCSViews
             this.splitContainer2.SuspendLayout();
             this.contextMenuStripHud.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.bindingSourceHud)).BeginInit();
+            this.pnlCameraDisplay.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pb_gimbalVideo)).BeginInit();
             this.contextMenuStripactionstab.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabConnect.SuspendLayout();
@@ -601,8 +606,17 @@ namespace MissionPlanner.GCSViews
             // pnlCameraDisplay
             // 
             this.pnlCameraDisplay.BackColor = System.Drawing.Color.Red;
+            this.pnlCameraDisplay.Controls.Add(this.pb_gimbalVideo);
             resources.ApplyResources(this.pnlCameraDisplay, "pnlCameraDisplay");
             this.pnlCameraDisplay.Name = "pnlCameraDisplay";
+            // 
+            // pb_gimbalVideo
+            // 
+            this.pb_gimbalVideo.BackColor = System.Drawing.Color.Blue;
+            resources.ApplyResources(this.pb_gimbalVideo, "pb_gimbalVideo");
+            this.pb_gimbalVideo.Name = "pb_gimbalVideo";
+            this.pb_gimbalVideo.TabStop = false;
+            this.pb_gimbalVideo.Click += new System.EventHandler(this.pb_gimbalVideo_Click);
             // 
             // contextMenuStripactionstab
             // 
@@ -640,12 +654,30 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
+            this.pnlRTSPInput.Controls.Add(this.btnDisconnectRTSP);
+            this.pnlRTSPInput.Controls.Add(this.btnConnectRTSP);
             this.pnlRTSPInput.Controls.Add(this.label10);
             this.pnlRTSPInput.Controls.Add(this.panel3);
             this.pnlRTSPInput.Controls.Add(this.txtSSHOutput);
             resources.ApplyResources(this.pnlRTSPInput, "pnlRTSPInput");
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
+            // 
+            // btnDisconnectRTSP
+            // 
+            resources.ApplyResources(this.btnDisconnectRTSP, "btnDisconnectRTSP");
+            this.btnDisconnectRTSP.Name = "btnDisconnectRTSP";
+            this.btnDisconnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnDisconnectRTSP.UseVisualStyleBackColor = true;
+            this.btnDisconnectRTSP.Click += new System.EventHandler(this.btnDisconnectRTSP_Click);
+            // 
+            // btnConnectRTSP
+            // 
+            resources.ApplyResources(this.btnConnectRTSP, "btnConnectRTSP");
+            this.btnConnectRTSP.Name = "btnConnectRTSP";
+            this.btnConnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnConnectRTSP.UseVisualStyleBackColor = true;
+            this.btnConnectRTSP.Click += new System.EventHandler(this.btnConnectRTSP_Click);
             // 
             // label10
             // 
@@ -663,6 +695,16 @@ namespace MissionPlanner.GCSViews
             this.panel3.Controls.Add(this.btnStartKamikaze);
             resources.ApplyResources(this.panel3, "panel3");
             this.panel3.Name = "panel3";
+            // 
+            // label7
+            // 
+            resources.ApplyResources(this.label7, "label7");
+            this.label7.Name = "label7";
+            // 
+            // txtScriptName
+            // 
+            resources.ApplyResources(this.txtScriptName, "txtScriptName");
+            this.txtScriptName.Name = "txtScriptName";
             // 
             // btnStopAutoMissionScript
             // 
@@ -2858,7 +2900,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 180D;
+            this.windDir1.Direction = 360D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -3010,16 +3052,6 @@ namespace MissionPlanner.GCSViews
             // 
             this.bindingSourceStatusTab.DataSource = typeof(MissionPlanner.CurrentState);
             // 
-            // txtScriptName
-            // 
-            resources.ApplyResources(this.txtScriptName, "txtScriptName");
-            this.txtScriptName.Name = "txtScriptName";
-            // 
-            // label7
-            // 
-            resources.ApplyResources(this.label7, "label7");
-            this.label7.Name = "label7";
-            // 
             // FlightData
             // 
             this.Controls.Add(this.MainH);
@@ -3044,6 +3076,8 @@ namespace MissionPlanner.GCSViews
             this.splitContainer2.ResumeLayout(false);
             this.contextMenuStripHud.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.bindingSourceHud)).EndInit();
+            this.pnlCameraDisplay.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.pb_gimbalVideo)).EndInit();
             this.contextMenuStripactionstab.ResumeLayout(false);
             this.tabControl1.ResumeLayout(false);
             this.tabConnect.ResumeLayout(false);
@@ -3358,5 +3392,8 @@ namespace MissionPlanner.GCSViews
         private Panel pnlCameraDisplay;
         private TextBox txtScriptName;
         private Label label7;
+        private Controls.MyButton btnDisconnectRTSP;
+        private Controls.MyButton btnConnectRTSP;
+        private PictureBox pb_gimbalVideo;
     }
 }
