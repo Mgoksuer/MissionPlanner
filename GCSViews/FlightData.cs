@@ -15,6 +15,10 @@ using Dowding.Model;
 using GMap.NET;
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
+using AForge.Video;
+using AFDS = AForge.Video.DirectShow;
+using System.Drawing.Imaging;
+
 using log4net;
 using Microsoft.Scripting.Utils;
 using MissionPlanner.ArduPilot;
@@ -48,6 +52,7 @@ using TableLayoutPanelCellPosition = System.Windows.Forms.TableLayoutPanelCellPo
 using UnauthorizedAccessException = System.UnauthorizedAccessException;
 using SkiaSharp;
 using System.Drawing.Imaging;
+using AForge.Video.DirectShow;
 
 // written by michael oborne
 
@@ -58,6 +63,12 @@ namespace MissionPlanner.GCSViews
         private readonly object streamLock = new object();
         private volatile bool isGStreamerRunning = false;
         private GStreamer cameraGStreamer;
+
+        // ... diğer mevcut değişkenler ...
+
+        private VideoCaptureDevice videoSource;
+        private AFDS.FilterInfoCollection videoDevices; // Burayı güncelledik
+                                                        // ...
 
         public static FlightData instance;
         public static GMapOverlay kmlpolygons;
@@ -260,9 +271,7 @@ namespace MissionPlanner.GCSViews
 
             log.Info("Components Done");
 
-            cameraGStreamer = new GStreamer();
-            cameraGStreamer.OnNewImage += CameraGStreamer_OnNewImage;
-
+           
 
             instance = this;
 
@@ -836,34 +845,64 @@ namespace MissionPlanner.GCSViews
 
         protected override void Dispose(bool disposing)
         {
+            // Önce temel sınıfın Dispose metodu çağrılır
             base.Dispose(disposing);
 
+            // Uygulama kapanırken veya form dispose edilirken gerekli temizlikler
             MainV2.comPort.logreadmode = false;
             try
             {
                 if (hud1 != null)
                     Settings.Instance["FlightSplitter"] = MainH.SplitterDistance.ToString();
             }
-            catch
-            {
-            }
+            catch { } // Hataları yoksay
 
-            if (polygons != null)
-                polygons.Dispose();
-            if (routes != null)
-                routes.Dispose();
-            if (route != null)
-                route.Dispose();
-            if (marker != null)
-                marker.Dispose();
-            if (aviwriter != null)
-                aviwriter.Dispose();
+            // Diğer disposable nesnelerin dispose edilmesi
+            if (polygons != null) polygons.Dispose();
+            if (routes != null) routes.Dispose();
+            if (route != null) route.Dispose();
+            if (marker != null) marker.Dispose();
+            if (aviwriter != null) aviwriter.Dispose();
 
-            if (prop != null)
-                prop.Stop();
+            if (prop != null) prop.Stop();
 
             if (disposing && (components != null))
             {
+                // AForge VideoSource'u durdur ve temizle (varsa)
+                if (videoSource != null && videoSource.IsRunning)
+                {
+                    videoSource.SignalToStop(); // Video yakalama thread'ine durma sinyali gönder
+                    videoSource.WaitForStop();   // Thread'in durmasını bekle
+                    videoSource.NewFrame -= videoSource_NewFrame; // Event handler'ı kaldır
+                    videoSource = null;
+                }
+
+                // GStreamer'ı durdur ve temizle (varsa)
+                lock (streamLock)
+                {
+                    if (cameraGStreamer != null && isGStreamerRunning)
+                    {
+                        cameraGStreamer.Stop();
+                        // cameraGStreamer.Dispose(); // GStreamer nesnesinin de kendi dispose mekanizması olabilir
+                        // isGStreamerRunning = false;
+                    }
+                }
+
+                // WebCamService.Capture'ı durdur ve temizle (varsa)
+                if (MainV2.cam != null)
+                {
+                    MainV2.cam.Dispose(); // Kaynakları serbest bırakır
+                    MainV2.cam = null;
+                }
+
+                // PictureBox'taki görüntüyü dispose et
+                if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
+                {
+                    pb_gimbalVideo.Image.Dispose();
+                    pb_gimbalVideo.Image = null; // Bellek sızıntısını önlemek için null olarak ayarla
+                }
+
+                // Formun diğer bileşenlerini dispose et
                 components.Dispose();
             }
         }
@@ -1870,7 +1909,8 @@ namespace MissionPlanner.GCSViews
 
         void cam_camimage(Image camimage)
         {
-            hud1.bgimage = camimage;
+
+            pb_gimbalVideo.Image = camimage;
         }
 
         private void CB_tuning_CheckedChanged(object sender, EventArgs e)
@@ -5075,6 +5115,7 @@ namespace MissionPlanner.GCSViews
             {
                 try
                 {
+                    // Video cihazını ayarlarda depolanan index ile başlat
                     MainV2.cam = new Capture(Settings.Instance.GetInt32("video_device"), new AMMediaType());
 
                     MainV2.cam.Start();
@@ -6973,157 +7014,187 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void btnConnectRTSP_Click(object sender, EventArgs e)
+
+
+        private void CleanupExistingCameraSources()
         {
-            btnConnectRTSP.Enabled = false;
-            btnDisconnectRTSP.Enabled = true; // Bağlantı kesme butonunu etkinleştir
+            // AForge VideoSource'u durdur ve temizle (varsa)
+            if (videoSource != null && videoSource.IsRunning)
+            {
+                videoSource.SignalToStop(); // Video yakalama thread'ine durma sinyali gönder
+                videoSource.WaitForStop();   // Thread'in durmasını bekle
+                videoSource.NewFrame -= videoSource_NewFrame; // Event handler'ı kaldır
+                videoSource = null;
+                txtSSHOutput.AppendText("Önceki AForge kamera yayını durduruldu.\r\n");
+            }
 
-            txtSSHOutput.Text = "Yerel kamera başlatılıyor... Lütfen bekleyiniz.\r\n"; 
-            Application.DoEvents(); 
-
-            lock (streamLock)
+            // GStreamer'ı durdur ve temizle (varsa)
+            lock (streamLock) // GStreamer nesnesi için kilit kullanılıyor
             {
                 if (cameraGStreamer != null && isGStreamerRunning)
                 {
                     cameraGStreamer.Stop();
-                    isGStreamerRunning = false;
+                    isGStreamerRunning = false; // GStreamer'ın durduğunu işaretle
                     txtSSHOutput.AppendText("Önceki GStreamer yayını durduruldu.\r\n");
-                    // PictureBox'ı da temizle
-                    if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
-                        pb_gimbalVideo.Image.Dispose();
-                    pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
                 }
             }
 
-            string pipeline = "dshowvideosrc device-name=\"AV TO USB2.0\" ! videoconvert ! video/x-raw,format=BGRA ! appsink name=outsink";
-
-
-            if (string.IsNullOrEmpty(pipeline)) 
+            // WebCamService.Capture'ı durdur ve temizle (varsa)
+            // 'MainV2.cam' nesnesinin 'Stop()' metodu yoksa, 'Dispose()' kullanılabilir.
+            if (MainV2.cam != null)
             {
-                MessageBox.Show("GStreamer pipeline oluşturulamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                btnConnectRTSP.Enabled = true;
-                btnDisconnectRTSP.Enabled = false;
+                // 'WebCamService.Capture' sınıfının kendi durdurma mekanizmasını çağırın.
+                // Eğer sadece Dispose() varsa, o kullanılır.
+                MainV2.cam.Dispose();
+                MainV2.cam = null;
+                txtSSHOutput.AppendText("Önceki WebCamService yayını durduruldu (Dispose ile).\r\n");
+            }
+
+            // PictureBox'ı temizle
+            if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
+            {
+                pb_gimbalVideo.Image.Dispose(); // Eski resmi dispose et
+            }
+            pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video; // Varsayılan "no_video" resmini ata
+        }
+
+        private void videoSource_NewFrame(object sender, NewFrameEventArgs eventArgs)
+        {
+            // Bu olay farklı bir iş parçacığından (AForge'un kendi iş parçacığı) tetikleneceği için,
+            // UI elemanlarına doğrudan erişmek "Cross-thread operation not valid" hatasına yol açar.
+            // Bu nedenle, UI elemanlarına erişmek için ana UI iş parçacığına geçiş yapmalıyız.
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new NewFrameEventHandler(videoSource_NewFrame), sender, eventArgs);
                 return;
             }
 
-            txtSSHOutput.AppendText($"\r\nKullanılan Pipeline: {pipeline}\r\n");
-            Application.DoEvents();
+            // Artık bu kod bloğu ana UI iş parçacığında çalışıyor.
+            // Formun veya kontrolün dispose edilip edilmediğini kontrol etmek önemlidir.
+            if (this.IsDisposed || !this.IsHandleCreated)
+                return;
 
             try
             {
-                lock (streamLock)
+                // PictureBox'ta şu anda gösterilen eski görüntüyü (eğer varsa ve varsayılan "no_video" değilse) dispose et.
+                // Bu, bellek sızıntılarını önler.
+                if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
                 {
-
-                    if (cameraGStreamer == null)
-                    {
-                        cameraGStreamer = new GStreamer();
-                        cameraGStreamer.OnNewImage += CameraGStreamer_OnNewImage;
-                    }
-                    cameraGStreamer.Start(pipeline);
-                    isGStreamerRunning = true;
+                    pb_gimbalVideo.Image.Dispose();
                 }
-                txtSSHOutput.AppendText("GStreamer başarıyla başlatıldı, AV TO USB2.0 yayını bekleniyor...\r\n");
+
+                // AForge'dan gelen kareyi klonlayarak PictureBox'a ata.
+                // Klonlamak, AForge'un aynı Bitmap nesnesini yeniden kullanmasını engeller,
+                // böylece görüntü bozulmalarının önüne geçilir ve güvenli bir şekilde gösterilebilir.
+                pb_gimbalVideo.Image = (Bitmap)eventArgs.Frame.Clone();
             }
             catch (Exception ex)
             {
-                isGStreamerRunning = false;
-                txtSSHOutput.AppendText($"\r\nGStreamer başlatılırken HATA: {ex.Message}\r\n");
-                log.Error(ex);
-                MessageBox.Show($"GStreamer başlatılırken hata oluştu: {ex.Message}\r\nGStreamer'ın doğru şekilde yüklendiğinden ve DirectShow eklentilerinin bulunduğundan emin olun. Cihaz adını veya indeksini kontrol edin.", "Video Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                if (!isGStreamerRunning)
+                // Görüntü işleme sırasında oluşan hataları logla
+                log.Error("AForge Yeni Kare İşlenirken Hata: " + ex.Message);
+                // Hata durumunda PictureBox'ı "no_video" resmine ayarla
+                if (pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
                 {
-                    btnConnectRTSP.Enabled = true;
+                    pb_gimbalVideo.Image?.Dispose();
+                    pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
                 }
+            }
+        }
+
+        private void btnConnectRTSP_Click(object sender, EventArgs e)
+        {
+            btnConnectRTSP.Enabled = false; // Bağlan butonunu devre dışı bırak
+            btnDisconnectRTSP.Enabled = true; // Bağlantı kesme butonunu etkinleştir
+
+            txtSSHOutput.AppendText("\r\nYerel kamera başlatılıyor... Lütfen bekleyiniz.\r\n");
+            Application.DoEvents(); // UI'nin hemen güncellenmesini sağla
+
+            CleanupExistingCameraSources(); // Başlamadan önce tüm mevcut kamera akışlarını temizle
+
+            try
+            {
+                // Sistemdeki tüm video yakalama cihazlarını al
+                // AFDS takma adı burada kullanıldı
+                videoDevices = new AFDS.FilterInfoCollection(AFDS.FilterCategory.VideoInputDevice);
+
+                if (videoDevices.Count == 0)
+                {
+                    MessageBox.Show("Sistemde kamera bulunamadı.", "Kamera Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    btnConnectRTSP.Enabled = true;
+                    btnDisconnectRTSP.Enabled = false;
+                    return;
+                }
+
+                AFDS.FilterInfo selectedDevice = null; // AFDS takma adı burada kullanıldı
+                string targetDeviceName = "AV TO USB2.0"; // Aradığımız kamera cihazının adı
+
+                // "AV TO USB2.0" adında bir cihaz arayın
+                foreach (AFDS.FilterInfo device in videoDevices) // AFDS takma adı burada kullanıldı
+                {
+                    if (device.Name.Contains(targetDeviceName))
+                    {
+                        selectedDevice = device;
+                        break;
+                    }
+                }
+
+                // Eğer hedef cihaz bulunamazsa ve başka cihazlar varsa, ilk cihazı varsayılan olarak kullan
+                if (selectedDevice == null && videoDevices.Count > 0)
+                {
+                    selectedDevice = videoDevices[0];
+                    txtSSHOutput.AppendText($"\r\n'{targetDeviceName}' cihazı bulunamadı. Varsayılan olarak '{selectedDevice.Name}' kullanılıyor.\r\n");
+                }
+                else if (selectedDevice == null)
+                {
+                    // Hiçbir uygun cihaz bulunamadı
+                    MessageBox.Show($"'{targetDeviceName}' cihazı bulunamadı ve başka kamera yok.", "Kamera Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    btnConnectRTSP.Enabled = true;
+                    btnDisconnectRTSP.Enabled = false;
+                    return;
+                }
+
+                // Seçilen video yakalama cihazını başlatmak için nesneyi oluştur
+                videoSource = new VideoCaptureDevice(selectedDevice.MonikerString);
+
+                // Yeni kare yakalandığında çağrılacak olayı ata
+                videoSource.NewFrame += new NewFrameEventHandler(videoSource_NewFrame);
+
+                // Kamerayı başlat
+                videoSource.Start();
+
+                txtSSHOutput.AppendText($"\r\n'{selectedDevice.Name}' kamerası başarıyla başlatıldı.\r\n");
+            }
+            catch (Exception ex)
+            {
+                txtSSHOutput.AppendText($"\r\nKamera başlatılırken HATA: {ex.Message}\r\n");
+                log.Error(ex); // Hatayı logla
+                MessageBox.Show($"Kamera başlatılırken hata oluştu: {ex.Message}\r\n" +
+                                "AForge.NET kütüphanelerinin doğru yüklendiğinden ve cihazın başka bir uygulama tarafından kullanılmadığından emin olun.",
+                                "Video Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                btnConnectRTSP.Enabled = true;
+                btnDisconnectRTSP.Enabled = false;
             }
         }
 
         private async void btnDisconnectRTSP_Click(object sender, EventArgs e)
         {
-            // Butonları geçici olarak devre dışı bırak
-            btnConnectRTSP.Enabled = false;
-            btnDisconnectRTSP.Enabled = false;
+            btnConnectRTSP.Enabled = false; // Bağlan butonunu geçici olarak devre dışı bırak
+            btnDisconnectRTSP.Enabled = false; // Bağlantı kesme butonunu geçici olarak devre dışı bırak
 
-            txtSSHOutput.AppendText("\r\nRTSP yayını durduruluyor, lütfen bekleyin...\r\n");
-            Application.DoEvents(); // UI'nin güncellenmesini sağla
+            txtSSHOutput.AppendText("\r\nKamera yayını durduruluyor, lütfen bekleyin...\r\n");
+            Application.DoEvents(); // UI'nin hemen güncellenmesini sağla
 
-            lock (streamLock)
-            {
-                cameraGStreamer.Stop();
-                isGStreamerRunning = false; // Stream'in durduğunu işaretle
-            }
+            CleanupExistingCameraSources(); // Tüm kamera kaynaklarını durdur ve temizle
 
-            // PictureBox'ı temizle
-            if (pb_gimbalVideo.Image != null && pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
-                pb_gimbalVideo.Image.Dispose();
-            pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
+            // Thread'in durduğundan emin olmak için kısa bir bekleme (isteğe bağlı)
+            await Task.Delay(3000); // 3 saniye bekle
 
-            // 3 saniye bekleme
-            await Task.Delay(3000); // 3000 milisaniye = 3 saniye
+            txtSSHOutput.AppendText("Kamera yayını durduruldu.\r\n");
 
-            txtSSHOutput.AppendText("RTSP yayını durduruldu.\r\n");
-
-            // Butonları tekrar etkinleştir
-            btnConnectRTSP.Enabled = true;
-            // btnDisconnectRTSP bu noktada hala devre dışı kalmalı, sadece bağlanınca aktif olur
+            btnConnectRTSP.Enabled = true; // "Bağlan" butonunu tekrar etkinleştir
+            // btnDisconnectRTSP bu noktada hala devre dışı kalmalı, sadece yeni bağlantı kurulduğunda aktif olur
         }
-        private void CameraGStreamer_OnNewImage(object sender, MPBitmap image)
-        {
-            // ÖNCE INVOKE KONTROLÜ YAPILIR. Bu kısımda lock OLMAZ.
-            // Bu sayede arka plan thread'i işini UI thread'e devredip hemen çıkar, kilidi meşgul etmez.
-            if (this.InvokeRequired)
-            {
-                this.BeginInvoke(new Action(() => CameraGStreamer_OnNewImage(sender, image)));
-                return;
-            }
-
-            // ARTIK BU NOKTADAN SONRASI KESİNLİKLE ANA ARAYÜZ (UI) THREAD'İNDE ÇALIŞIR.
-            // Şimdi 'Start/Stop' komutlarıyla çakışmayı önlemek için kilidi güvenle kullanabiliriz.
-            lock (streamLock)
-            {
-                // GStreamer'ın bizim tarafımızdan durdurulup durdurulmadığını KİLİT İÇİNDE kontrol et.
-                if (!isGStreamerRunning)
-                    return;
-
-                if (this.IsDisposed || !this.IsHandleCreated)
-                    return;
-
-                try
-                {
-                    // Gelen görüntü geçersizse "no_video" resmini göster
-                    if (image == null || image.Width <= 0 || image.Height <= 0)
-                    {
-                        if (pb_gimbalVideo.Image != global::MissionPlanner.Properties.Resources.no_video)
-                        {
-                            // Sadece önceki bir video karesiyse dispose et (no_video resmini asla dispose etme)
-                            pb_gimbalVideo.Image?.Dispose();
-                            pb_gimbalVideo.Image = global::MissionPlanner.Properties.Resources.no_video;
-                        }
-                        return;
-                    }
-
-                    var old = pb_gimbalVideo.Image;
-
-                    pb_gimbalVideo.Image = new Bitmap(
-                        image.Width, image.Height, 4 * image.Width,
-                        System.Drawing.Imaging.PixelFormat.Format32bppPArgb, // Tam yolu belirtiyoruz
-                        image.LockBits(System.Drawing.Rectangle.Empty, System.Drawing.Imaging.ImageLockMode.ReadOnly, SKColorType.Bgra8888).Scan0 // SKColorType ile uyumlu format
-                    );
-
-                    // Eski resmi (eğer "no_video" değilse) temizle
-                    if (old != null && old != global::MissionPlanner.Properties.Resources.no_video)
-                    {
-                        old.Dispose();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.Error("Görüntü işlenirken hata: " + ex.ToString());
-                }
-            }
-        }
+        
 
         private void pb_gimbalVideo_Click(object sender, EventArgs e)
         {
