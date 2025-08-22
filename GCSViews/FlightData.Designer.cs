@@ -39,16 +39,19 @@ namespace MissionPlanner.GCSViews
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabConnect = new System.Windows.Forms.TabPage();
             this.pnlRTSPInput = new System.Windows.Forms.Panel();
-            this.btnDisconnectRTSP = new MissionPlanner.Controls.MyButton();
-            this.btnConnectRTSP = new MissionPlanner.Controls.MyButton();
-            this.label10 = new System.Windows.Forms.Label();
+            this.label9 = new System.Windows.Forms.Label();
+            this.panel4 = new System.Windows.Forms.Panel();
+            this.btnStartKamikaze_Batý = new MissionPlanner.Controls.MyButton();
+            this.btnStartKamikaze_Dogu = new MissionPlanner.Controls.MyButton();
+            this.btnStartKamikaze_Guney = new MissionPlanner.Controls.MyButton();
+            this.btnStartKamikaze_Kuzey = new MissionPlanner.Controls.MyButton();
+            this.label8 = new System.Windows.Forms.Label();
             this.panel3 = new System.Windows.Forms.Panel();
             this.label7 = new System.Windows.Forms.Label();
             this.txtScriptName = new System.Windows.Forms.TextBox();
             this.btnStopAutoMissionScript = new MissionPlanner.Controls.MyButton();
             this.btnStartKitlenme = new MissionPlanner.Controls.MyButton();
             this.btnRunAutoMissionScript = new MissionPlanner.Controls.MyButton();
-            this.btnStartKamikaze = new MissionPlanner.Controls.MyButton();
             this.txtSSHOutput = new System.Windows.Forms.TextBox();
             this.tabControlactions = new System.Windows.Forms.TabControl();
             this.tabQuick = new System.Windows.Forms.TabPage();
@@ -277,6 +280,7 @@ namespace MissionPlanner.GCSViews
             this.tabControl1.SuspendLayout();
             this.tabConnect.SuspendLayout();
             this.pnlRTSPInput.SuspendLayout();
+            this.panel4.SuspendLayout();
             this.panel3.SuspendLayout();
             this.tabControlactions.SuspendLayout();
             this.tabQuick.SuspendLayout();
@@ -612,7 +616,7 @@ namespace MissionPlanner.GCSViews
             // 
             // pb_gimbalVideo
             // 
-            this.pb_gimbalVideo.BackColor = System.Drawing.Color.Blue;
+            this.pb_gimbalVideo.BackColor = System.Drawing.Color.DarkGray;
             resources.ApplyResources(this.pb_gimbalVideo, "pb_gimbalVideo");
             this.pb_gimbalVideo.Name = "pb_gimbalVideo";
             this.pb_gimbalVideo.TabStop = false;
@@ -654,35 +658,66 @@ namespace MissionPlanner.GCSViews
             // 
             // pnlRTSPInput
             // 
-            this.pnlRTSPInput.Controls.Add(this.btnDisconnectRTSP);
-            this.pnlRTSPInput.Controls.Add(this.btnConnectRTSP);
-            this.pnlRTSPInput.Controls.Add(this.label10);
+            resources.ApplyResources(this.pnlRTSPInput, "pnlRTSPInput");
+            this.pnlRTSPInput.Controls.Add(this.label9);
+            this.pnlRTSPInput.Controls.Add(this.panel4);
+            this.pnlRTSPInput.Controls.Add(this.label8);
             this.pnlRTSPInput.Controls.Add(this.panel3);
             this.pnlRTSPInput.Controls.Add(this.txtSSHOutput);
-            resources.ApplyResources(this.pnlRTSPInput, "pnlRTSPInput");
             this.pnlRTSPInput.Name = "pnlRTSPInput";
             this.pnlRTSPInput.Paint += new System.Windows.Forms.PaintEventHandler(this.pnlRTSPInput_Paint);
             // 
-            // btnDisconnectRTSP
+            // label9
             // 
-            resources.ApplyResources(this.btnDisconnectRTSP, "btnDisconnectRTSP");
-            this.btnDisconnectRTSP.Name = "btnDisconnectRTSP";
-            this.btnDisconnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnDisconnectRTSP.UseVisualStyleBackColor = true;
-            this.btnDisconnectRTSP.Click += new System.EventHandler(this.btnDisconnectRTSP_Click);
+            resources.ApplyResources(this.label9, "label9");
+            this.label9.Name = "label9";
             // 
-            // btnConnectRTSP
+            // panel4
             // 
-            resources.ApplyResources(this.btnConnectRTSP, "btnConnectRTSP");
-            this.btnConnectRTSP.Name = "btnConnectRTSP";
-            this.btnConnectRTSP.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnConnectRTSP.UseVisualStyleBackColor = true;
-            this.btnConnectRTSP.Click += new System.EventHandler(this.btnConnectRTSP_Click);
+            this.panel4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.panel4.Controls.Add(this.btnStartKamikaze_Batý);
+            this.panel4.Controls.Add(this.btnStartKamikaze_Dogu);
+            this.panel4.Controls.Add(this.btnStartKamikaze_Guney);
+            this.panel4.Controls.Add(this.btnStartKamikaze_Kuzey);
+            resources.ApplyResources(this.panel4, "panel4");
+            this.panel4.Name = "panel4";
             // 
-            // label10
+            // btnStartKamikaze_Batý
             // 
-            resources.ApplyResources(this.label10, "label10");
-            this.label10.Name = "label10";
+            resources.ApplyResources(this.btnStartKamikaze_Batý, "btnStartKamikaze_Batý");
+            this.btnStartKamikaze_Batý.Name = "btnStartKamikaze_Batý";
+            this.btnStartKamikaze_Batý.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartKamikaze_Batý.UseVisualStyleBackColor = true;
+            this.btnStartKamikaze_Batý.Click += new System.EventHandler(this.btnStartKamikaze_Batý_Click);
+            // 
+            // btnStartKamikaze_Dogu
+            // 
+            resources.ApplyResources(this.btnStartKamikaze_Dogu, "btnStartKamikaze_Dogu");
+            this.btnStartKamikaze_Dogu.Name = "btnStartKamikaze_Dogu";
+            this.btnStartKamikaze_Dogu.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartKamikaze_Dogu.UseVisualStyleBackColor = true;
+            this.btnStartKamikaze_Dogu.Click += new System.EventHandler(this.btnStartKamikaze_Dogu_Click);
+            // 
+            // btnStartKamikaze_Guney
+            // 
+            resources.ApplyResources(this.btnStartKamikaze_Guney, "btnStartKamikaze_Guney");
+            this.btnStartKamikaze_Guney.Name = "btnStartKamikaze_Guney";
+            this.btnStartKamikaze_Guney.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartKamikaze_Guney.UseVisualStyleBackColor = true;
+            this.btnStartKamikaze_Guney.Click += new System.EventHandler(this.btnStartKamikaze_Guney_Click);
+            // 
+            // btnStartKamikaze_Kuzey
+            // 
+            resources.ApplyResources(this.btnStartKamikaze_Kuzey, "btnStartKamikaze_Kuzey");
+            this.btnStartKamikaze_Kuzey.Name = "btnStartKamikaze_Kuzey";
+            this.btnStartKamikaze_Kuzey.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
+            this.btnStartKamikaze_Kuzey.UseVisualStyleBackColor = true;
+            this.btnStartKamikaze_Kuzey.Click += new System.EventHandler(this.btnStartKamikaze_Kuzey_Click);
+            // 
+            // label8
+            // 
+            resources.ApplyResources(this.label8, "label8");
+            this.label8.Name = "label8";
             // 
             // panel3
             // 
@@ -692,7 +727,6 @@ namespace MissionPlanner.GCSViews
             this.panel3.Controls.Add(this.btnStopAutoMissionScript);
             this.panel3.Controls.Add(this.btnStartKitlenme);
             this.panel3.Controls.Add(this.btnRunAutoMissionScript);
-            this.panel3.Controls.Add(this.btnStartKamikaze);
             resources.ApplyResources(this.panel3, "panel3");
             this.panel3.Name = "panel3";
             // 
@@ -730,19 +764,12 @@ namespace MissionPlanner.GCSViews
             this.btnRunAutoMissionScript.UseVisualStyleBackColor = true;
             this.btnRunAutoMissionScript.Click += new System.EventHandler(this.btnRunAutoMissionScript_Click);
             // 
-            // btnStartKamikaze
-            // 
-            resources.ApplyResources(this.btnStartKamikaze, "btnStartKamikaze");
-            this.btnStartKamikaze.Name = "btnStartKamikaze";
-            this.btnStartKamikaze.TextColorNotEnabled = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(87)))), ((int)(((byte)(4)))));
-            this.btnStartKamikaze.UseVisualStyleBackColor = true;
-            this.btnStartKamikaze.Click += new System.EventHandler(this.btnStartKamikaze_Click);
-            // 
             // txtSSHOutput
             // 
             resources.ApplyResources(this.txtSSHOutput, "txtSSHOutput");
             this.txtSSHOutput.Name = "txtSSHOutput";
             this.txtSSHOutput.ReadOnly = true;
+            this.txtSSHOutput.TextChanged += new System.EventHandler(this.txtSSHOutput_TextChanged);
             // 
             // tabControlactions
             // 
@@ -2900,7 +2927,7 @@ namespace MissionPlanner.GCSViews
             this.windDir1.BackColor = System.Drawing.Color.Transparent;
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Direction", this.bindingSource1, "wind_dir", true, System.Windows.Forms.DataSourceUpdateMode.Never));
             this.windDir1.DataBindings.Add(new System.Windows.Forms.Binding("Speed", this.bindingSource1, "wind_vel", true, System.Windows.Forms.DataSourceUpdateMode.Never));
-            this.windDir1.Direction = 180D;
+            this.windDir1.Direction = 360D;
             resources.ApplyResources(this.windDir1, "windDir1");
             this.windDir1.Name = "windDir1";
             this.windDir1.Speed = 0D;
@@ -3083,6 +3110,7 @@ namespace MissionPlanner.GCSViews
             this.tabConnect.ResumeLayout(false);
             this.pnlRTSPInput.ResumeLayout(false);
             this.pnlRTSPInput.PerformLayout();
+            this.panel4.ResumeLayout(false);
             this.panel3.ResumeLayout(false);
             this.panel3.PerformLayout();
             this.tabControlactions.ResumeLayout(false);
@@ -3382,18 +3410,21 @@ namespace MissionPlanner.GCSViews
         private SplitContainer splitContainer2;
         private Controls.HUD hud1;
         private Panel pnlRTSPInput;
-        private Label label10;
         private Panel panel3;
         private Controls.MyButton btnStopAutoMissionScript;
         private Controls.MyButton btnStartKitlenme;
         private Controls.MyButton btnRunAutoMissionScript;
-        private Controls.MyButton btnStartKamikaze;
         private TextBox txtSSHOutput;
         private Panel pnlCameraDisplay;
         private TextBox txtScriptName;
         private Label label7;
-        private Controls.MyButton btnDisconnectRTSP;
-        private Controls.MyButton btnConnectRTSP;
         private PictureBox pb_gimbalVideo;
+        private Label label8;
+        private Panel panel4;
+        private Label label9;
+        private Controls.MyButton btnStartKamikaze_Kuzey;
+        private Controls.MyButton btnStartKamikaze_Dogu;
+        private Controls.MyButton btnStartKamikaze_Guney;
+        private Controls.MyButton btnStartKamikaze_Batý;
     }
 }

@@ -6762,13 +6762,29 @@ namespace MissionPlanner.GCSViews
                 txtSSHOutput.AppendText($"\r\nHATA: Komut gonderme basarisiz: {ex.Message}\r\n");
             }
         }
-        private void btnStartKamikaze_Click(object sender, EventArgs e)
-        {
-            SendCommandToJetson("START_KAMIKAZE");
-        }
+      
         private void btnStartKitlenme_Click(object sender, EventArgs e)
         {
             SendCommandToJetson("START_LOCK");
+        }
+        private void btnStartKamikaze_Kuzey_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE_KUZEY");
+        }
+
+        private void btnStartKamikaze_Dogu_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE_DOGU");
+        }
+
+        private void btnStartKamikaze_Guney_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE_GUNEY");
+        }
+
+        private void btnStartKamikaze_Batı_Click(object sender, EventArgs e)
+        {
+            SendCommandToJetson("START_KAMIKAZE_BATI");
         }
 
 
@@ -7101,104 +7117,19 @@ namespace MissionPlanner.GCSViews
             }
         }
 
-        private void btnConnectRTSP_Click(object sender, EventArgs e)
-        {
-            btnConnectRTSP.Enabled = false; // Bağlan butonunu devre dışı bırak
-            btnDisconnectRTSP.Enabled = true; // Bağlantı kesme butonunu etkinleştir
-
-            txtSSHOutput.AppendText("\r\nYerel kamera başlatılıyor... Lütfen bekleyiniz.\r\n");
-            Application.DoEvents(); // UI'nin hemen güncellenmesini sağla
-
-            CleanupExistingCameraSources(); // Başlamadan önce tüm mevcut kamera akışlarını temizle
-
-            try
-            {
-                // Sistemdeki tüm video yakalama cihazlarını al
-                // AFDS takma adı burada kullanıldı
-                videoDevices = new AFDS.FilterInfoCollection(AFDS.FilterCategory.VideoInputDevice);
-
-                if (videoDevices.Count == 0)
-                {
-                    MessageBox.Show("Sistemde kamera bulunamadı.", "Kamera Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    btnConnectRTSP.Enabled = true;
-                    btnDisconnectRTSP.Enabled = false;
-                    return;
-                }
-
-                AFDS.FilterInfo selectedDevice = null; // AFDS takma adı burada kullanıldı
-                string targetDeviceName = "AV TO USB2.0"; // Aradığımız kamera cihazının adı
-
-                // "AV TO USB2.0" adında bir cihaz arayın
-                foreach (AFDS.FilterInfo device in videoDevices) // AFDS takma adı burada kullanıldı
-                {
-                    if (device.Name.Contains(targetDeviceName))
-                    {
-                        selectedDevice = device;
-                        break;
-                    }
-                }
-
-                // Eğer hedef cihaz bulunamazsa ve başka cihazlar varsa, ilk cihazı varsayılan olarak kullan
-                if (selectedDevice == null && videoDevices.Count > 0)
-                {
-                    selectedDevice = videoDevices[0];
-                    txtSSHOutput.AppendText($"\r\n'{targetDeviceName}' cihazı bulunamadı. Varsayılan olarak '{selectedDevice.Name}' kullanılıyor.\r\n");
-                }
-                else if (selectedDevice == null)
-                {
-                    // Hiçbir uygun cihaz bulunamadı
-                    MessageBox.Show($"'{targetDeviceName}' cihazı bulunamadı ve başka kamera yok.", "Kamera Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    btnConnectRTSP.Enabled = true;
-                    btnDisconnectRTSP.Enabled = false;
-                    return;
-                }
-
-                // Seçilen video yakalama cihazını başlatmak için nesneyi oluştur
-                videoSource = new VideoCaptureDevice(selectedDevice.MonikerString);
-
-                // Yeni kare yakalandığında çağrılacak olayı ata
-                videoSource.NewFrame += new NewFrameEventHandler(videoSource_NewFrame);
-
-                // Kamerayı başlat
-                videoSource.Start();
-
-                txtSSHOutput.AppendText($"\r\n'{selectedDevice.Name}' kamerası başarıyla başlatıldı.\r\n");
-            }
-            catch (Exception ex)
-            {
-                txtSSHOutput.AppendText($"\r\nKamera başlatılırken HATA: {ex.Message}\r\n");
-                log.Error(ex); // Hatayı logla
-                MessageBox.Show($"Kamera başlatılırken hata oluştu: {ex.Message}\r\n" +
-                                "AForge.NET kütüphanelerinin doğru yüklendiğinden ve cihazın başka bir uygulama tarafından kullanılmadığından emin olun.",
-                                "Video Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                btnConnectRTSP.Enabled = true;
-                btnDisconnectRTSP.Enabled = false;
-            }
-        }
-
-        private async void btnDisconnectRTSP_Click(object sender, EventArgs e)
-        {
-            btnConnectRTSP.Enabled = false; // Bağlan butonunu geçici olarak devre dışı bırak
-            btnDisconnectRTSP.Enabled = false; // Bağlantı kesme butonunu geçici olarak devre dışı bırak
-
-            txtSSHOutput.AppendText("\r\nKamera yayını durduruluyor, lütfen bekleyin...\r\n");
-            Application.DoEvents(); // UI'nin hemen güncellenmesini sağla
-
-            CleanupExistingCameraSources(); // Tüm kamera kaynaklarını durdur ve temizle
-
-            // Thread'in durduğundan emin olmak için kısa bir bekleme (isteğe bağlı)
-            await Task.Delay(3000); // 3 saniye bekle
-
-            txtSSHOutput.AppendText("Kamera yayını durduruldu.\r\n");
-
-            btnConnectRTSP.Enabled = true; // "Bağlan" butonunu tekrar etkinleştir
-            // btnDisconnectRTSP bu noktada hala devre dışı kalmalı, sadece yeni bağlantı kurulduğunda aktif olur
-        }
+       
         
 
         private void pb_gimbalVideo_Click(object sender, EventArgs e)
         {
 
         }
+
+        private void txtSSHOutput_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        
     }
 }
